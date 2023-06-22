@@ -32,5 +32,5 @@ interface ILiquidationSource {
    * @param tokenIn Address of the token to get the target address for
    * @return address Address of the target
    */
-  function targetOf(address tokenIn) external returns (address);
+  function targetOf(address tokenIn) external view returns (address);
 }
