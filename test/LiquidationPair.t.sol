@@ -43,7 +43,7 @@ contract LiquidationPairTest is Test {
     decayConstant = wrap(0.001e18);
 
     // Mock any yield that has accrued prior to the first auction.
-    mockAvailableBalanceOf(1e18);
+    mockLiquidatableBalanceOf(1e18);
     pair = new LiquidationPair(
       source,
       tokenIn,
@@ -58,7 +58,7 @@ contract LiquidationPairTest is Test {
   function testMaxAmountOut() public {
     uint256 amount = 1e18;
     uint256 amountOut;
-    mockAvailableBalanceOf(amount);
+    mockLiquidatableBalanceOf(amount);
 
     // At the start of the first period.
     // Nothing has been emitted yet.
@@ -90,7 +90,7 @@ contract LiquidationPairTest is Test {
   function testComputeExactAmountIn_TEST() public {
     uint256 amountAvailable = 1e18;
     uint256 amountIn;
-    mockAvailableBalanceOf(amountAvailable);
+    mockLiquidatableBalanceOf(amountAvailable);
 
     // At the start of the first period.
     // The price should be approaching infinity.
@@ -103,7 +103,7 @@ contract LiquidationPairTest is Test {
   function testComputeExactAmountIn_HappyPath() public {
     uint256 amountAvailable = 1e18;
     uint256 amountIn;
-    mockAvailableBalanceOf(amountAvailable);
+    mockLiquidatableBalanceOf(amountAvailable);
 
     // // At the start of the first period.
     // // The price should be approaching infinity.
@@ -139,7 +139,7 @@ contract LiquidationPairTest is Test {
   function testSwapExactAmountOut_HappyPath() public {
     uint256 amountAvailable = 1e18;
     uint256 amountIn;
-    mockAvailableBalanceOf(amountAvailable);
+    mockLiquidatableBalanceOf(amountAvailable);
     mockLiquidate(
       address(source),
       alice,
@@ -187,10 +187,10 @@ contract LiquidationPairTest is Test {
 
   /* ============ Mocks ============ */
 
-  function mockAvailableBalanceOf(uint256 amount) public {
+  function mockLiquidatableBalanceOf(uint256 amount) public {
     vm.mockCall(
       address(source),
-      abi.encodeWithSelector(source.availableBalanceOf.selector, tokenOut),
+      abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut),
       abi.encode(amount)
     );
   }

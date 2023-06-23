@@ -233,7 +233,7 @@ contract LiquidationPair is ILiquidationPair {
       // Reset last available auction start time when draw rolls over.
       lastAvailableAuctionStartTime = startTime;
       // NOTE: Downcasting available balance to liquidate from source.
-      auctionData.amountAccrued = uint128(source.availableBalanceOf(tokenOut));
+      auctionData.amountAccrued = uint128(source.liquidatableBalanceOf(tokenOut));
       auctionData.startTime = startTime;
       auctionData.amountClaimed = 0;
 

@@ -8,7 +8,7 @@ interface ILiquidationSource {
    * @param tokenOut Address of the token to get available balance for
    * @return uint256 Available amount of `token`
    */
-  function availableBalanceOf(address tokenOut) external view returns (uint256);
+  function liquidatableBalanceOf(address tokenOut) external view returns (uint256);
 
   /**
    * @notice Liquidate `amountIn` of `tokenIn` for `amountOut` of `tokenOut` and transfer to `account`.
