@@ -7,15 +7,13 @@ import "./LiquidationPair.sol";
 contract LiquidationPairFactory {
   /* ============ Events ============ */
   event PairCreated(
-    LiquidationPair indexed liquidator,
-    ILiquidationSource indexed source,
-    address indexed tokenIn,
+    ILiquidationSource source,
+    address tokenIn,
     address tokenOut,
-    UFixed32x4 swapMultiplier,
-    UFixed32x4 liquidityFraction,
-    uint128 virtualReserveIn,
-    uint128 virtualReserveOut,
-    uint256 minK
+    uint32 periodLength,
+    uint32 periodOffset,
+    SD59x18 initialPrice,
+    SD59x18 decayConstant
   );
 
   /* ============ Variables ============ */
@@ -34,36 +32,32 @@ contract LiquidationPairFactory {
     ILiquidationSource _source,
     address _tokenIn,
     address _tokenOut,
-    UFixed32x4 _swapMultiplier,
-    UFixed32x4 _liquidityFraction,
-    uint128 _virtualReserveIn,
-    uint128 _virtualReserveOut,
-    uint256 _mink
+    uint32 _periodLength,
+    uint32 _periodOffset,
+    SD59x18 _initialPrice,
+    SD59x18 _decayConstant
   ) external returns (LiquidationPair) {
     LiquidationPair _liquidationPair = new LiquidationPair(
       _source,
       _tokenIn,
       _tokenOut,
-      _swapMultiplier,
-      _liquidityFraction,
-      _virtualReserveIn,
-      _virtualReserveOut,
-      _mink
+      _periodLength,
+      _periodOffset,
+      _initialPrice,
+      _decayConstant
     );
 
     allPairs.push(_liquidationPair);
     deployedPairs[_liquidationPair] = true;
 
     emit PairCreated(
-      _liquidationPair,
       _source,
       _tokenIn,
       _tokenOut,
-      _swapMultiplier,
-      _liquidityFraction,
-      _virtualReserveIn,
-      _virtualReserveOut,
-      _mink
+      _periodLength,
+      _periodOffset,
+      _initialPrice,
+      _decayConstant
     );
 
     return _liquidationPair;

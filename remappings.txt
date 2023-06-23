@@ -6,3 +6,4 @@ v5-prize-pool/=lib/v5-prize-pool/src/
 v5-twab-controller/=lib/v5-prize-pool/lib/v5-twab-controller/src/
 prb-math/=lib/prb-math/src/
 ring-buffer-lib/=lib/ring-buffer-lib/src/
+openzeppelin/=lib/openzeppelin-contracts/contracts/

@@ -17,7 +17,6 @@ contract LiquidationPairTest is Test {
   address public tokenIn;
   address public tokenOut;
   SD59x18 initialTokenOutPrice;
-  SD59x18 initialAuctionPrice;
   SD59x18 decayConstant;
   uint32 PERIOD_LENGTH = 1 days;
   uint32 PERIOD_OFFSET = 1 days;
@@ -40,8 +39,7 @@ contract LiquidationPairTest is Test {
     tokenOut = makeAddr("tokenOut");
     source = ILiquidationSource(makeAddr("source"));
     vm.etch(address(source), "liquidationSource");
-    initialTokenOutPrice = convert(10e18);
-    initialAuctionPrice = convert(100000e18); // Really high initial starting price. Ideally as high as possible.
+    initialTokenOutPrice = convert(100000e18);
     decayConstant = wrap(0.001e18);
 
     // Mock any yield that has accrued prior to the first auction.
@@ -53,7 +51,6 @@ contract LiquidationPairTest is Test {
       PERIOD_LENGTH,
       PERIOD_OFFSET,
       initialTokenOutPrice,
-      initialAuctionPrice,
       decayConstant
     );
   }

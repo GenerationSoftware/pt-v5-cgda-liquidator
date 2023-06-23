@@ -32,21 +32,6 @@ contract LiquidationRouter {
 
   /* ============ External Methods ============ */
 
-  function swapExactAmountIn(
-    LiquidationPair _liquidationPair,
-    address _receiver,
-    uint256 _amountIn,
-    uint256 _amountOutMin
-  ) external onlyTrustedLiquidationPair(_liquidationPair) returns (uint256) {
-    IERC20(_liquidationPair.tokenIn()).safeTransferFrom(
-      msg.sender,
-      _liquidationPair.target(),
-      _amountIn
-    );
-
-    return _liquidationPair.swapExactAmountIn(_receiver, _amountIn, _amountOutMin);
-  }
-
   function swapExactAmountOut(
     LiquidationPair _liquidationPair,
     address _receiver,

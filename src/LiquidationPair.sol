@@ -48,8 +48,7 @@ contract LiquidationPair is ILiquidationPair {
     address _tokenOut,
     uint32 _periodLength,
     uint32 _periodOffset,
-    SD59x18 _initialTokenOutPrice,
-    SD59x18 _initialAuctionPrice,
+    SD59x18 _initialPrice,
     SD59x18 _decayConstant
   ) {
     source = _source;
@@ -57,12 +56,12 @@ contract LiquidationPair is ILiquidationPair {
     tokenOut = _tokenOut;
     PERIOD_LENGTH = _periodLength;
     PERIOD_OFFSET = _periodOffset;
-    initialAuctionPrice = _initialAuctionPrice;
+    initialAuctionPrice = _initialPrice;
     decayConstant = _decayConstant;
     lastAvailableAuctionStartTime = uint32(block.timestamp);
 
     Auction memory currentAuction = _getAuctionData(uint32(block.timestamp));
-    currentAuction.targetPrice = _initialTokenOutPrice;
+    currentAuction.targetPrice = _initialPrice;
   }
 
   /* ============ External Read Methods ============ */
