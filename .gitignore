@@ -13,3 +13,4 @@ out/
 node_modules
 
 .history
+lcov.info

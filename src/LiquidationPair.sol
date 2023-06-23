@@ -103,10 +103,10 @@ contract LiquidationPair is ILiquidationPair {
   ) external returns (uint256) {
     (
       uint256 amountIn,
-      uint256 amountEmitted,
+      ,
       SD59x18 emissionRate,
-      SD59x18 elapsed,
-      uint256 amountAccrued
+      ,
+      
     ) = _computeExactAmountIn(_amountOut, uint32(block.timestamp));
     // Ensure amount out is less than max amount available.
     require(amountIn <= _amountInMax, "LiquidationPair/exceeds-max-amount-in");
@@ -117,10 +117,7 @@ contract LiquidationPair is ILiquidationPair {
       uint32(block.timestamp),
       amountIn,
       _amountOut,
-      amountEmitted,
-      emissionRate,
-      elapsed,
-      amountAccrued
+      emissionRate
     );
 
     return amountIn;
@@ -151,13 +148,13 @@ contract LiquidationPair is ILiquidationPair {
       uint256 amountAccrued
     ) = _getAmountEmitted(_timestamp);
     // require(_amountOut <= amountEmitted, "exceeds emitted");
-    SD59x18 decayRate = _getDecayRate(amountAccrued);
+    SD59x18 decayRate = _getDecayRate();
 
-    console2.log("purchaseAmount", _amountOut);
-    console2.log("emissionRate", unwrap(emissionRate));
-    console2.log("initialPrice", unwrap(initialAuctionPrice));
-    console2.log("decayRate", unwrap(decayRate));
-    console2.log("elapsedTime", unwrap(elapsed));
+    // console2.log("purchaseAmount", _amountOut);
+    // console2.log("emissionRate", unwrap(emissionRate));
+    // console2.log("initialPrice", unwrap(initialAuctionPrice));
+    // console2.log("decayRate", unwrap(decayRate));
+    // console2.log("elapsedTime", unwrap(elapsed));
 
     uint256 amountIn = ContinuousGDA.purchasePrice(
       _amountOut,
@@ -177,7 +174,7 @@ contract LiquidationPair is ILiquidationPair {
     return convert(int256(amountAccrued)).div(convert(int32(PERIOD_LENGTH)));
   }
 
-  function _getDecayRate(uint256 amountAccrued) internal view returns (SD59x18) {
+  function _getDecayRate() internal view returns (SD59x18) {
     // 1.5/a
     // return wrap(1.5e18).div(convert(int256(amountAccrued)));
     // constant
@@ -223,9 +220,9 @@ contract LiquidationPair is ILiquidationPair {
     uint32 timestampPeriod = _getTimestampPeriod(_timestamp);
     uint32 startTime = _getPeriodStart(timestampPeriod);
 
-    console2.log("timestampPeriod", timestampPeriod);
-    console2.log("auctionData.startTime", auctionData.startTime);
-    console2.log("startTime", startTime);
+    // console2.log("timestampPeriod", timestampPeriod);
+    // console2.log("auctionData.startTime", auctionData.startTime);
+    // console2.log("startTime", startTime);
 
     // If it is an old auction, overwrite it.
     // NOTE: Don't overwrite the target price! That is set elsewhere.
@@ -276,10 +273,7 @@ contract LiquidationPair is ILiquidationPair {
     uint32 _timestamp,
     uint256 _amountIn,
     uint256 _amountOut,
-    uint256 amountEmitted,
-    SD59x18 emissionRate,
-    SD59x18 elapsed,
-    uint256 amountAccrued
+    SD59x18 emissionRate
   ) internal {
     Auction storage currentAuction = _getAuctionData(_timestamp);
     Auction storage nextAuction = auctions[

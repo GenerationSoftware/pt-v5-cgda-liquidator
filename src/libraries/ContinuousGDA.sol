@@ -4,8 +4,11 @@ pragma solidity 0.8.17;
 import "forge-std/console2.sol";
 import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
 
+int256 constant MAX_EXP = 133_084258667509499441;
+
 // NOTE: taken from https://github.com/FrankieIsLost/gradual-dutch-auction/blob/master/src/ContinuousGDA.sol
 library ContinuousGDA {
+
   ///@notice calculate price to purchased _numTokens using exponential continuous GDA formula
   function purchasePrice(
     uint256 _numTokens,
@@ -13,27 +16,28 @@ library ContinuousGDA {
     SD59x18 _initialPrice,
     SD59x18 _decayConstant,
     SD59x18 _timeSinceLastAuctionStart
-  ) public pure returns (uint256) {
-    // console2.log("_numTokens", _numTokens);
-    // console2.log("_emissionRate", unwrap(_emissionRate));
-    // console2.log("_initialPrice", unwrap(_initialPrice));
-    // console2.log("_decayConstant", unwrap(_decayConstant));
-    // console2.log("_timeSinceLastAuctionStart", unwrap(_timeSinceLastAuctionStart));
-
+  ) internal pure returns (uint256) {
     SD59x18 quantity = convert(int256(_numTokens));
-    console2.log("quantity", unwrap(quantity));
-
     SD59x18 num1 = _initialPrice.div(_decayConstant);
-    console2.log("num1", unwrap(num1));
+    SD59x18 num2 = _decayConstant.mul(quantity).div(_emissionRate);
 
-    SD59x18 num2 = _decayConstant.mul(quantity).div(_emissionRate).exp().sub(convert(1));
-    console2.log("num2", unwrap(num2));
+    // console2.log("MAX_EXP", MAX_EXP);
+    // console2.log("num2", num2.unwrap());
 
-    console2.log("den-ish", unwrap(_decayConstant.mul(_timeSinceLastAuctionStart)));
-    SD59x18 den = _decayConstant.mul(_timeSinceLastAuctionStart).exp();
-    console2.log("den", unwrap(den));
+    if (num2.unwrap() > MAX_EXP) {
+      // console2.log("GOT HERE");
+      return type(uint256).max;
+    }
 
-    console2.log("total", uint256(convert(num1.mul(num2.div(den)))));
+    num2 = num2.exp().sub(convert(1));
+    SD59x18 den = _decayConstant.mul(_timeSinceLastAuctionStart);
+    
+    if (den.unwrap() > MAX_EXP) {
+      // console2.log("ALSO GOT HERE");
+      return type(uint256).max;
+    }
+
+    den = den.exp();
     return uint256(convert(num1.mul(num2.div(den))));
   }
 }
