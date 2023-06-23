@@ -2,6 +2,8 @@
 
 pragma solidity 0.8.17;
 
+import { SD59x18 } from "prb-math/SD59x18.sol";
+
 interface ILiquidationPair {
   /* ============ Events ============ */
 
@@ -33,14 +35,14 @@ interface ILiquidationPair {
    * @notice Gets the maximum amount of tokens that can be swapped out from the source.
    * @return The maximum amount of tokens that can be swapped out.
    */
-  function maxAmountOut() external view returns (uint256);
+  function maxAmountOut() external returns (uint256);
 
   /**
    * @notice Computes the exact amount of tokens to send in for the given amount of tokens to receive out.
    * @param _amountOut The amount of tokens to receive out.
    * @return The amount of tokens to send in.
    */
-  function computeExactAmountIn(uint256 _amountOut) external view returns (uint256);
+  function computeExactAmountIn(uint256 _amountOut) external returns (uint256);
 
   // /**
   //  * @notice Computes the exact amount of tokens to receive out for the given amount of tokens to send in.
