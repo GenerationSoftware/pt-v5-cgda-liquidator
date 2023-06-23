@@ -79,6 +79,9 @@ contract LiquidationPair is ILiquidationPair {
 
   /// @inheritdoc ILiquidationPair
   function computeExactAmountIn(uint256 _amountOut) external returns (uint256) {
+    if (_amountOut == 0) {
+      return 0;
+    }
     (uint256 amountIn, , , , ) = _computeExactAmountIn(_amountOut, uint32(block.timestamp));
     return amountIn;
   }
@@ -233,6 +236,7 @@ contract LiquidationPair is ILiquidationPair {
       auctionData.amountAccrued = uint128(source.liquidatableBalanceOf(tokenOut));
       auctionData.startTime = startTime;
       auctionData.amountClaimed = 0;
+      auctionData.targetPrice = initialAuctionPrice;
 
       // If it's not the first, add rollover amount.
       if (timestampPeriod > 0) {
@@ -289,7 +293,7 @@ contract LiquidationPair is ILiquidationPair {
     currentAuction.amountClaimed = uint128(currentAuction.amountClaimed + _amountOut);
 
     // Update next auctions target price based on swap price
-    SD59x18 swapPrice = convert(int256(_amountIn)).div(convert(int256(_amountOut)));
-    nextAuction.targetPrice = nextAuction.targetPrice.add(swapPrice).div(convert(2));
+    // SD59x18 swapPrice = convert(int256(_amountIn)).div(convert(int256(_amountOut)));
+    // nextAuction.targetPrice = nextAuction.targetPrice.add(swapPrice).div(convert(2));
   }
 }
