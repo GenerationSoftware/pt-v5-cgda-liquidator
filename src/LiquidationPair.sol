@@ -78,9 +78,6 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   function _maxAmountOut(Auction memory auction) internal returns (uint256) {
-    if (auction.lastAuctionTime > uint32(block.timestamp)) {
-      return 0;
-    }
     return uint256(auction.amountAccrued) - auction.amountClaimed;
   }
 
