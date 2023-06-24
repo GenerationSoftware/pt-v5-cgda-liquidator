@@ -23,6 +23,8 @@ contract LiquidationPair is ILiquidationPair {
   /// @dev Ensure that the PERIOD_OFFSET is in the past.
   uint32 public immutable PERIOD_OFFSET;
 
+  SD59x18 public immutable smoothing;
+
   /// @notice Storage for the auction.
   Auction internal _auction;
 
@@ -36,6 +38,8 @@ contract LiquidationPair is ILiquidationPair {
     SD59x18 targetPrice;
   }
 
+  SD59x18 public priceAverage;
+
   /* ============ Constructor ============ */
 
   constructor(
@@ -47,6 +51,8 @@ contract LiquidationPair is ILiquidationPair {
     SD59x18 _initialPrice,
     SD59x18 _decayConstant
   ) {
+    smoothing = wrap(0.9e18);
+    priceAverage = _initialPrice;
     source = _source;
     tokenIn = _tokenIn;
     tokenOut = _tokenOut;
@@ -130,6 +136,9 @@ contract LiquidationPair is ILiquidationPair {
 
     _swap(_account, _amountOut, amountIn);
 
+    SD59x18 currentPrice = convert(int256(_amountOut)).div(convert(int256(amountIn)));
+    priceAverage = priceAverage.mul(smoothing).add(currentPrice.mul(convert(1).sub(smoothing)));
+
     return amountIn;
   }
 
@@ -207,7 +216,7 @@ contract LiquidationPair is ILiquidationPair {
         amountAccrued: uint104(source.liquidatableBalanceOf(tokenOut)),
         amountClaimed: 0,
         period: currentPeriod,
-        targetPrice: auction.targetPrice
+        targetPrice: priceAverage
       });
     }
 
