@@ -196,6 +196,10 @@ contract LiquidationPair is ILiquidationPair {
     return _getAuction(uint32(block.timestamp));
   }
 
+  function getElapsedTime() external returns (int256) {
+    return convert(_getElapsedTime(_auction.lastAuctionTime));
+  }
+
   function _getAuction(uint32 _timestamp) internal returns (Auction memory) {
     Auction memory auction = _auction;
 
