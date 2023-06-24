@@ -74,7 +74,13 @@ contract LiquidationPair is ILiquidationPair {
 
   /// @inheritdoc ILiquidationPair
   function maxAmountOut() external returns (uint256) {
-    Auction memory auction = _getAuction(uint32(block.timestamp));
+    return _maxAmountOut(_getAuction(uint32(block.timestamp)));
+  }
+
+  function _maxAmountOut(Auction memory auction) internal returns (uint256) {
+    if (auction.lastAuctionTime > uint32(block.timestamp)) {
+      return 0;
+    }
     return uint256(auction.amountAccrued) - auction.amountClaimed;
   }
 
@@ -105,7 +111,7 @@ contract LiquidationPair is ILiquidationPair {
     uint256 _amountInMax
   ) external returns (uint256) {
     Auction memory auction = _getAuction(uint32(block.timestamp));
-    require(_amountOut <= auction.amountAccrued - auction.amountClaimed, "exceeds accrued");
+    require(_amountOut <= _maxAmountOut(auction), "exceeds available");
     SD59x18 emissionRate = _getEmissionRate(auction.amountAccrued);
     SD59x18 elapsed = _getElapsedTime(auction.lastAuctionTime);
     uint amountIn = ContinuousGDA.purchasePrice(
@@ -152,7 +158,7 @@ contract LiquidationPair is ILiquidationPair {
     uint32 _timestamp
   ) internal returns (uint256) {
     Auction memory auction = _getAuction(_timestamp);
-    require(_amountOut <= auction.amountAccrued - auction.amountClaimed, "exceeds accrued");
+    require(_amountOut <= _maxAmountOut(auction), "exceeds available");
     SD59x18 emissionRate = _getEmissionRate(auction.amountAccrued);
     SD59x18 elapsed = _getElapsedTime(auction.lastAuctionTime);
     uint purchasePrice;
@@ -220,6 +226,9 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   function _getPeriod(uint32 _timestamp) internal view returns (uint16) {
-    return uint16((block.timestamp - PERIOD_OFFSET) / PERIOD_LENGTH);
+    if (_timestamp < PERIOD_OFFSET) {
+      return 0;
+    }
+    return uint16((_timestamp - PERIOD_OFFSET) / PERIOD_LENGTH);
   }
 }
