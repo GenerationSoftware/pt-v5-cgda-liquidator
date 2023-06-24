@@ -137,7 +137,7 @@ contract LiquidationPair is ILiquidationPair {
 
     _swap(_account, _amountOut, amountIn);
 
-    SD59x18 currentPrice = convert(int256(_amountOut)).div(convert(int256(amountIn)));
+    SD59x18 currentPrice = convert(int256(amountIn)).div(convert(int256(_amountOut)));
     priceAverage = priceAverage.mul(smoothing).add(currentPrice.mul(convert(1).sub(smoothing)));
 
     return amountIn;
