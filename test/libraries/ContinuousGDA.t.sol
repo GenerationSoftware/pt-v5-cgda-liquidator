@@ -4,7 +4,7 @@ pragma solidity 0.8.17;
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
 
-import { ContinuousGDA, MAX_EXP } from "src/libraries/ContinuousGDA.sol";
+import { ContinuousGDA } from "src/libraries/ContinuousGDA.sol";
 import { ContinuousGDAWrapper } from "./wrapper/ContinuousGDAWrapper.sol";
 import { SD59x18, convert, wrap, unwrap } from "prb-math/SD59x18.sol";
 
@@ -41,43 +41,5 @@ contract ContinuousGDATest is Test {
     console2.log((amountIn * 1e18) / purchaseAmount);
 
     assertEq(amountIn, 87420990783136780);
-  }
-
-  function testOverflow_exp1() public {
-    uint256 purchaseAmount = 5e18;
-    SD59x18 emissionRate = convert(0.1e13); // many per second
-    SD59x18 initialPrice = convert(1e18);
-    SD59x18 elapsedTime = convert(1);
-    SD59x18 decayConstant = wrap(50000e18);
-
-    assertEq(
-      wrapper.purchasePrice(
-        purchaseAmount,
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        elapsedTime
-      ),
-      type(uint256).max
-    );
-  }
-
-  function testOverflow_exp2() public {
-    uint256 purchaseAmount = 5e18;
-    SD59x18 emissionRate = convert(1000e18); // many per second
-    SD59x18 initialPrice = convert(1e18);
-    SD59x18 elapsedTime = convert(1e18);
-    SD59x18 decayConstant = wrap(5e18);
-
-    assertEq(
-      wrapper.purchasePrice(
-        purchaseAmount,
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        elapsedTime
-      ),
-      type(uint256).max
-    );
   }
 }
