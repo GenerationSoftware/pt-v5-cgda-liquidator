@@ -49,9 +49,10 @@ contract LiquidationPair is ILiquidationPair {
     uint32 _periodLength,
     uint32 _periodOffset,
     SD59x18 _initialPrice,
-    SD59x18 _decayConstant
+    SD59x18 _decayConstant,
+    SD59x18 _smoothing
   ) {
-    smoothing = wrap(0.9e18);
+    smoothing = _smoothing;
     priceAverage = _initialPrice;
     source = _source;
     tokenIn = _tokenIn;

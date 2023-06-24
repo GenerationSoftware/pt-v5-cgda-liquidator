@@ -35,7 +35,8 @@ contract LiquidationPairFactory {
     uint32 _periodLength,
     uint32 _periodOffset,
     SD59x18 _initialPrice,
-    SD59x18 _decayConstant
+    SD59x18 _decayConstant,
+    SD59x18 _smoothing
   ) external returns (LiquidationPair) {
     LiquidationPair _liquidationPair = new LiquidationPair(
       _source,
@@ -44,7 +45,8 @@ contract LiquidationPairFactory {
       _periodLength,
       _periodOffset,
       _initialPrice,
-      _decayConstant
+      _decayConstant,
+      _smoothing
     );
 
     allPairs.push(_liquidationPair);

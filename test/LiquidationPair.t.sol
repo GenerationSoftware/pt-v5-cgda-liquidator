@@ -51,7 +51,8 @@ contract LiquidationPairTest is Test {
       PERIOD_LENGTH,
       PERIOD_OFFSET,
       initialTokenOutPrice,
-      decayConstant
+      decayConstant,
+      wrap(0.9e18)
     );
   }
 
