@@ -42,4 +42,22 @@ contract ContinuousGDATest is Test {
 
     assertEq(amountIn, 87420990783136780);
   }
+
+  function testPurchasePrice_onTime() public {
+    SD59x18 emissionRate = convert(10); // 1 per second
+    SD59x18 initialPrice = convert(26);
+    SD59x18 decayConstant = wrap(1e18);
+    SD59x18 elapsedTime = convert(0);
+
+    assertEq(
+      wrapper.purchasePrice(
+        5,
+        emissionRate,
+        initialPrice,
+        decayConstant,
+        elapsedTime
+      ),
+      16
+    );
+  }
 }

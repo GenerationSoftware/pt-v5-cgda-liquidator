@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.17;
 
+import "forge-std/console2.sol";
+
 import { RingBufferLib } from "ring-buffer-lib/RingBufferLib.sol";
 import { ContinuousGDA } from "./libraries/ContinuousGDA.sol";
 import "./interfaces/ILiquidationSource.sol";
@@ -25,6 +27,8 @@ contract LiquidationPair is ILiquidationPair {
 
   SD59x18 public immutable smoothing;
 
+  SD59x18 public immutable initialPrice;
+
   /// @notice Storage for the auction.
   Auction internal _auction;
 
@@ -38,7 +42,7 @@ contract LiquidationPair is ILiquidationPair {
     SD59x18 targetPrice;
   }
 
-  SD59x18 public priceAverage;
+  int public auctionTimeOffset;
 
   /* ============ Constructor ============ */
 
@@ -53,7 +57,7 @@ contract LiquidationPair is ILiquidationPair {
     SD59x18 _smoothing
   ) {
     smoothing = _smoothing;
-    priceAverage = _initialPrice;
+    initialPrice = _initialPrice;
     source = _source;
     tokenIn = _tokenIn;
     tokenOut = _tokenOut;
@@ -127,6 +131,9 @@ contract LiquidationPair is ILiquidationPair {
     );
     require(amountIn <= _amountInMax, "exceeds max amount in");
 
+    // console2.log("lastAuctionTime: ", auction.lastAuctionTime);
+    // console2.log("period: ", auction.period);
+
     // increase lastAvailableAuctionStartTime with elapsed time (based on quantity)
     auction.lastAuctionTime += uint32(
       uint256(convert(convert(int256(_amountOut)).div(emissionRate)))
@@ -137,8 +144,25 @@ contract LiquidationPair is ILiquidationPair {
 
     _swap(_account, _amountOut, amountIn);
 
-    SD59x18 currentPrice = convert(int256(amountIn)).div(convert(int256(_amountOut)));
-    priceAverage = priceAverage.mul(smoothing).add(currentPrice.mul(convert(1).sub(smoothing)));
+
+
+    int delta = int256(block.timestamp) - int256(uint256(auction.lastAuctionTime));
+    auctionTimeOffset = convert(convert(auctionTimeOffset).mul(smoothing).add(convert(delta).mul(convert(1).sub(smoothing))));
+    // console2.log("auctionTimeOffset: ", auctionTimeOffset);
+
+    // console2.log("amountOut: ", _amountOut);
+    // console2.log("auction.targetPrice: ", convert(auction.targetPrice));
+    // SD59x18 currentPrice = convert(int256(amountIn)).div(convert(int256(_amountOut)));
+    // console2.log("currentPrice: ", currentPrice.unwrap());
+    // console2.log("priceAverage: ", priceAverage.unwrap());
+    // SD59x18 addition = currentPrice.mul(convert(1).sub(smoothing));
+    // console2.log("addition: ", addition.unwrap());
+    // SD59x18 muller = priceAverage.mul(smoothing);
+    // console2.log("muller: ", muller.unwrap());
+    // priceAverage = muller.add(addition);
+    // console2.log("new priceAverage: ", convert(priceAverage));
+
+    // AuctionPerSecond
 
     return amountIn;
   }
@@ -212,12 +236,15 @@ contract LiquidationPair is ILiquidationPair {
 
     uint16 currentPeriod = _getPeriod(_timestamp);
     if (currentPeriod != auction.period) {
+      uint startTime = PERIOD_OFFSET + PERIOD_LENGTH * currentPeriod;
+      startTime = uint(int(startTime) - auctionTimeOffset);
+      // console2.log("auction period, startTime", currentPeriod, startTime);
       auction = Auction({
-        lastAuctionTime: PERIOD_OFFSET + PERIOD_LENGTH * currentPeriod,
+        lastAuctionTime: uint32(startTime),
         amountAccrued: uint104(source.liquidatableBalanceOf(tokenOut)),
         amountClaimed: 0,
         period: currentPeriod,
-        targetPrice: priceAverage
+        targetPrice: initialPrice
       });
     }
 
@@ -226,6 +253,14 @@ contract LiquidationPair is ILiquidationPair {
 
   function _setAuction(Auction memory auction) internal {
     _auction = auction;
+  }
+
+  function getPeriodStart() external view returns (uint32) {
+    return _getPeriodStart(_getPeriod(uint32(block.timestamp)));
+  }
+
+  function getPeriodEnd() external view returns (uint32) {
+    return _getPeriodEnd(_getPeriod(uint32(block.timestamp)));
   }
 
   function _getPeriodStart(uint32 _period) internal view returns (uint32) {
