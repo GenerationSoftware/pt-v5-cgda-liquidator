@@ -56,6 +56,19 @@ contract LiquidationPairTest is Test {
     );
   }
 
+  function testComputeExactAmountIn() public {
+    pair = new LiquidationPair(
+      source,
+      tokenIn,
+      tokenOut,
+      PERIOD_LENGTH,
+      PERIOD_OFFSET,
+      initialTokenOutPrice,
+      decayConstant,
+      wrap(0.9e18)
+    );
+  }
+
   function testMaxAmountOut() public {
     uint256 amount = 1e18;
     uint256 amountOut;
