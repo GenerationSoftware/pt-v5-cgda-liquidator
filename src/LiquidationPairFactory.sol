@@ -12,8 +12,10 @@ contract LiquidationPairFactory {
     address tokenOut,
     uint32 periodLength,
     uint32 periodOffset,
-    SD59x18 initialPrice,
-    SD59x18 decayConstant
+    uint32 targetFirstSaleTime,
+    SD59x18 decayConstant,
+    uint112 initialAmountIn,
+    uint112 initialAmountOut
   );
 
   /* ============ Variables ============ */
@@ -34,9 +36,10 @@ contract LiquidationPairFactory {
     address _tokenOut,
     uint32 _periodLength,
     uint32 _periodOffset,
-    SD59x18 _initialPrice,
+    uint32 _targetFirstSaleTime,
     SD59x18 _decayConstant,
-    SD59x18 _smoothing
+    uint112 _initialAmountIn,
+    uint112 _initialAmountOut
   ) external returns (LiquidationPair) {
     LiquidationPair _liquidationPair = new LiquidationPair(
       _source,
@@ -44,9 +47,10 @@ contract LiquidationPairFactory {
       _tokenOut,
       _periodLength,
       _periodOffset,
-      _initialPrice,
+      _targetFirstSaleTime,
       _decayConstant,
-      _smoothing
+      _initialAmountIn,
+      _initialAmountOut
     );
 
     allPairs.push(_liquidationPair);
@@ -58,8 +62,10 @@ contract LiquidationPairFactory {
       _tokenOut,
       _periodLength,
       _periodOffset,
-      _initialPrice,
-      _decayConstant
+      _targetFirstSaleTime,
+      _decayConstant,
+      _initialAmountIn,
+      _initialAmountOut
     );
 
     return _liquidationPair;

@@ -22,4 +22,21 @@ contract ContinuousGDAWrapper {
       _timeSinceLastAuctionStart);
     return result;
   }
+
+  function computeK(
+    SD59x18 _emissionRate,
+    SD59x18 _decayConstant,
+    SD59x18 _timeSinceLastAuctionStart,
+    SD59x18 _purchaseAmount,
+    SD59x18 _price
+  ) external pure returns (SD59x18) {
+    SD59x18 result = ContinuousGDA.computeK(
+      _emissionRate,
+      _decayConstant,
+      _timeSinceLastAuctionStart,
+      _purchaseAmount,
+      _price
+    );
+    return result;
+  }
 }

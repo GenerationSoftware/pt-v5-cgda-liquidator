@@ -15,7 +15,7 @@ contract ContinuousGDATest is Test {
   function setUp() public {
     wrapper = new ContinuousGDAWrapper();
   }
-
+/*
   function testParadigmDocPurchasePrice() public {
     // 1 per 10 seconds
     uint256 purchaseAmount = 1e18;
@@ -118,26 +118,75 @@ contract ContinuousGDATest is Test {
       uint(convert(auctionStartingPrice))
     );
   }
+*/
+  function testComputeK() public {
+    uint availableAmount = 100; // 1000 USDC
+    SD59x18 exchangeRateAmountOutToAmountIn = wrap(10e18);
 
-  function testPurchasePrice_bestAmount() public {
+    uint duration = 1000;
+    SD59x18 emissionRate = wrap(0.1e18);//convert(int(availableAmount)).div(convert(int(duration/2)));
+    SD59x18 decayConstant = wrap(0.0005e18);
 
+    SD59x18 targetTime = convert(100);
+    SD59x18 auctionStartingPrice = computeK(emissionRate, decayConstant, targetTime, exchangeRateAmountOutToAmountIn);
+    SD59x18 amountOut = targetTime.mul(emissionRate);
+    // console2.log("purchase price for", amountOut);
+    uint amountIn = ContinuousGDA.purchasePrice(
+      uint(convert(amountOut)),
+      emissionRate,
+      auctionStartingPrice,
+      decayConstant,
+      targetTime
+    );
+
+    assertEq(amountIn, uint(convert(amountOut.div(exchangeRateAmountOutToAmountIn))));
+  }
+/*
+  function testComputeK_bestTime() public {
     uint availableAmount = 1000e6; // 1000 USDC
-    uint duration = 1 days;
-    SD59x18 emissionRate = convert(int(availableAmount)).div(convert(int(duration)));
-    SD59x18 auctionStartingPrice = convert(1000e18);
-    SD59x18 decayConstant = wrap(0.0005e18); // time does not affect price
+    SD59x18 exchangeRateAmountOutToAmountIn = wrap(1e20);
 
-    // 1 USDC = 1 POOL => usdc/pool = 1e6/1e18 = 1e-12
-    // say there is a 26 decimal token.  Pool is 18 decimals.
-    // exchange rate is billion to one
-    SD59x18 exchangeRateAmountOutToAmountIn = wrap(1e19);
+    uint duration = 1 days;
+    SD59x18 emissionRate = convert(int(availableAmount)).div(convert(int(duration/2)));
+    SD59x18 decayConstant = wrap(0.0005e18);
+
+    SD59x18 targetTime = convert(4 hours);
+    SD59x18 auctionStartingPrice = computeK(emissionRate, decayConstant, targetTime, exchangeRateAmountOutToAmountIn);
 
     (uint elapsedTime, uint bestAmountOut, uint bestProfit, uint bestAmountIn) = computeArbitrageStart(
       emissionRate,
       auctionStartingPrice,
       decayConstant,
       exchangeRateAmountOutToAmountIn,
-      availableAmount,
+      duration,
+      5 minutes
+    );
+
+    console2.log("elapsedTime", elapsedTime);
+    console2.log("bestAmountOut", bestAmountOut);
+    console2.log("bestProfit", bestProfit);
+    console2.log("bestAmountIn", bestAmountIn);
+  }
+
+  function testPurchasePrice_bestAmount() public {
+
+    uint availableAmount = 1000e6; // 1000 USDC
+    uint duration = 1 days;
+    SD59x18 emissionRate = convert(int(availableAmount)).div(convert(int(duration)));
+    // amount in per amount out
+    SD59x18 auctionStartingPrice = convert(1000e18);
+    SD59x18 decayConstant = wrap(0.001e18);
+
+    // 1 USDC = 1 POOL => usdc/pool = 1e6/1e18 = 1e-12
+    // say there is a 26 decimal token.  Pool is 18 decimals.
+    // exchange rate is billion to one
+    SD59x18 exchangeRateAmountOutToAmountIn = wrap(1e18);
+
+    (uint elapsedTime, uint bestAmountOut, uint bestProfit, uint bestAmountIn) = computeArbitrageStart(
+      emissionRate,
+      auctionStartingPrice,
+      decayConstant,
+      exchangeRateAmountOutToAmountIn,
       duration,
       5 minutes
     );
@@ -150,13 +199,33 @@ contract ContinuousGDATest is Test {
       console2.log("trade price", uint(convert(convert(int(bestAmountOut)).div(convert(int(bestAmountIn))))));
     }
   }
+  */
+
+  function computeK(
+    SD59x18 emissionRate,
+    SD59x18 decayConstant,
+    SD59x18 targetTime,
+    SD59x18 exchangeRateAmountOutToAmountIn
+  ) public view returns (SD59x18) {
+    SD59x18 purchasedAmountOut = emissionRate.mul(targetTime);
+    SD59x18 priceAmountIn = purchasedAmountOut.div(exchangeRateAmountOutToAmountIn);
+
+    // console2.log("COMPUTE_K purchasedAmountOut", uint(convert(purchasedAmountOut)));
+    // console2.log("COMPUTE_K priceAmountIn", uint(convert(priceAmountIn)));
+    return wrapper.computeK(
+      emissionRate,
+      decayConstant,
+      targetTime,
+      purchasedAmountOut,
+      priceAmountIn
+    );
+  }
 
   function computeArbitrageStart(
     SD59x18 emissionRate,
     SD59x18 auctionStartingPrice,
     SD59x18 decayConstant,
     SD59x18 exchangeRateAmountOutToAmountIn,
-    uint availableAmount,
     uint maxElapsedTime,
     uint timePeriod
   ) public view returns (uint elapsedTime, uint bestAmountOut, uint bestProfit, uint bestAmountIn) {
@@ -166,7 +235,6 @@ contract ContinuousGDATest is Test {
         auctionStartingPrice,
         decayConstant,
         exchangeRateAmountOutToAmountIn,
-        availableAmount,
         int(elapsedTime)
       );
 
@@ -181,31 +249,21 @@ contract ContinuousGDATest is Test {
     SD59x18 auctionStartingPrice,
     SD59x18 decayConstant,
     SD59x18 marketRateAmountOutToAmountIn,
-    uint availableAmount,
     int elapsedTime
-  ) public view returns (uint bestAmountOut, uint bestProfit, uint bestAmountIn) {
-    int chunk = int(availableAmount / 100);
-    for (int amountOut = chunk; amountOut <= int(availableAmount); amountOut += chunk) {
-      uint cost = ContinuousGDA.purchasePrice(
-        uint(amountOut),
-        emissionRate,
-        auctionStartingPrice,
-        decayConstant,
-        convert(elapsedTime)
-      );
-      // console2.log("cost", cost);
-      // console2.log("\tamountOut", uint(amountOut));
-      uint revenue = uint(convert(convert(amountOut).div(marketRateAmountOutToAmountIn)));
-      // console2.log("\t\trevenue", revenue);
-      if (revenue > cost) {
-        uint profit = revenue - cost;
-        if (profit > bestProfit) {
-          bestProfit = profit;
-          bestAmountIn = cost;
-          bestAmountOut = uint(amountOut);
-        }
-      }
-    }
+  ) public view returns (uint amountOut, uint profit, uint amountIn) {
+    SD59x18 availableAmountOut = convert(elapsedTime).mul(emissionRate);
+    uint costAmountIn = ContinuousGDA.purchasePrice(
+      uint(convert(availableAmountOut)),
+      emissionRate,
+      auctionStartingPrice,
+      decayConstant,
+      convert(elapsedTime)
+    );
+    uint revenueAmountIn = uint(convert(availableAmountOut.div(marketRateAmountOutToAmountIn)));
+
+    amountOut = uint(convert(availableAmountOut));
+    amountIn = costAmountIn;
+    profit = revenueAmountIn > costAmountIn ? revenueAmountIn - costAmountIn : 0;
   }
 
 }
