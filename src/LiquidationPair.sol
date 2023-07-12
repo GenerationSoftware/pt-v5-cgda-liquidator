@@ -9,6 +9,10 @@ import "./interfaces/ILiquidationSource.sol";
 import "./interfaces/ILiquidationPair.sol";
 import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
 
+error AmountInZero();
+error AmountOutZero();
+error TargetFirstSaleTimeLtPeriodLength(uint passedTargetSaleTime, uint periodLength);
+
 contract LiquidationPair is ILiquidationPair {
   /* ============ Variables ============ */
 
@@ -27,8 +31,8 @@ contract LiquidationPair is ILiquidationPair {
 
   uint32 public immutable targetFirstSaleTime;
 
-  uint112 public previousAmountIn;
-  uint112 public previousAmountOut;
+  uint112 public lastNonZeroAmountIn;
+  uint112 public lastNonZeroAmountOut;
 
   /* ============ Structs ============ */
 
@@ -61,18 +65,21 @@ contract LiquidationPair is ILiquidationPair {
     targetFirstSaleTime = _targetFirstSaleTime;
     
     // convert to event
-    require(targetFirstSaleTime < PERIOD_LENGTH, "targetFirstSaleTime must be less than PERIOD_LENGTH");
+    if(targetFirstSaleTime >= PERIOD_LENGTH) {
+      revert TargetFirstSaleTimeLtPeriodLength(targetFirstSaleTime, PERIOD_LENGTH);
+    }
 
-    // console2.log("GOT HEREEEE");
-
-    emissionRate = _computeEmissionRate();
+    if (_initialAmountIn == 0) {
+      revert AmountInZero();
+    }
+    if (_initialAmountOut == 0) {
+      revert AmountOutZero();
+    }
     
-    // console2.log("GOT HEREEEE 22222");
+    lastNonZeroAmountIn = _initialAmountIn;
+    lastNonZeroAmountOut = _initialAmountOut;
 
-    initialPrice = _computeK(emissionRate, _initialAmountIn, _initialAmountOut);
-    previousAmountIn = _initialAmountIn;
-    previousAmountOut = _initialAmountOut;
-    lastAuctionTime = PERIOD_OFFSET;
+    _updateAuction(0);
   }
 
   /* ============ External Read Methods ============ */
@@ -84,35 +91,19 @@ contract LiquidationPair is ILiquidationPair {
 
   /// @inheritdoc ILiquidationPair
   function maxAmountOut() external returns (uint256) {
-    _updateAuction(block.timestamp);
+    _checkUpdateAuction();
     return _maxAmountOut();
   }
   
-  function _maxAmountOut() internal view returns (uint256) {
-    uint emissions = uint(convert(emissionRate.mul(_getElapsedTime(lastAuctionTime))));
-    uint liquidatable = source.liquidatableBalanceOf(tokenOut);
-    return emissions > liquidatable ? liquidatable : emissions;
-  }
-
   /// @inheritdoc ILiquidationPair
   function computeExactAmountIn(uint256 _amountOut) external returns (uint256) {
     if (_amountOut == 0) {
       return 0;
     }
-    return _computeExactAmountIn(_amountOut, uint32(block.timestamp));
+    return _computeExactAmountIn(_amountOut);
   }
 
-  // /// @inheritdoc ILiquidationPair
-  // function computeExactAmountOut(uint256 _amountIn) external view returns (uint256) {}
-
   /* ============ External Write Methods ============ */
-
-  // /// @inheritdoc ILiquidationPair
-  // function swapExactAmountIn(
-  //   address _account,
-  //   uint256 _amountIn,
-  //   uint256 _amountOutMin
-  // ) external returns (uint256) {}
 
   /// @inheritdoc ILiquidationPair
   function swapExactAmountOut(
@@ -120,29 +111,51 @@ contract LiquidationPair is ILiquidationPair {
     uint256 _amountOut,
     uint256 _amountInMax
   ) external returns (uint256) {
-    _updateAuction(block.timestamp);
-    require(_amountOut <= _maxAmountOut(), "exceeds available");
-    SD59x18 elapsed = _getElapsedTime(lastAuctionTime);
-    uint swapAmountIn = ContinuousGDA.purchasePrice(
-      _amountOut,
-      emissionRate,
-      initialPrice,
-      decayConstant,
-      elapsed
-    );
+    uint swapAmountIn = _computeExactAmountIn(_amountOut);
     require(swapAmountIn <= _amountInMax, "exceeds max amount in");
-
     amountIn += uint112(swapAmountIn);
     amountOut += uint112(_amountOut);
     lastAuctionTime += uint32(
       uint256(convert(convert(int256(_amountOut)).div(emissionRate)))
     );
     _swap(_account, _amountOut, swapAmountIn);
-
     return swapAmountIn;
   }
 
+  function computePurchasePrice(uint256 _amountOut, SD59x18 _initialPrice, SD59x18 _emissionRate, SD59x18 _elapsed) public view returns (uint256) {
+    return ContinuousGDA.purchasePrice(
+      _amountOut,
+      _emissionRate,
+      _initialPrice,
+      decayConstant,
+      _elapsed
+    );
+  }
+
+  function getElapsedTime() external returns (int256) {
+    _checkUpdateAuction();
+    return convert(_getElapsedTime(lastAuctionTime));
+  }
+
+  function getPeriodStart() external returns (uint32) {
+    _checkUpdateAuction();
+    return _getPeriodStart(_getPeriod(uint32(block.timestamp)));
+  }
+
+  function getPeriodEnd() external returns (uint32) {
+    _checkUpdateAuction();
+    return _getPeriodEnd(_getPeriod(uint32(block.timestamp)));
+  }
+
   /* ============ Internal Functions ============ */
+
+  function _maxAmountOut() internal view returns (uint256) {
+    // console2.log("_maxAmountOut lastAuctionTime", lastAuctionTime);
+    uint emissions = uint(convert(emissionRate.mul(_getElapsedTime(lastAuctionTime))));
+    // console2.log("_maxAmountOut emissions", emissions);
+    uint liquidatable = source.liquidatableBalanceOf(tokenOut);
+    return emissions > liquidatable ? liquidatable : emissions;
+  }
 
   function _swap(address _account, uint256 _amountOut, uint256 _amountIn) internal {
     source.liquidate(_account, tokenIn, _amountIn, tokenOut, _amountOut);
@@ -156,11 +169,8 @@ contract LiquidationPair is ILiquidationPair {
     return convert(int256(block.timestamp)).sub(convert(int256(_lastAuctionTime)));
   }
 
-  function _computeExactAmountIn(
-    uint256 _amountOut,
-    uint32 _timestamp
-  ) internal returns (uint256) {
-    _updateAuction(_timestamp);
+  function _computeExactAmountIn(uint256 _amountOut) internal returns (uint256) {
+    _checkUpdateAuction();
     require(_amountOut <= _maxAmountOut(), "exceeds available");
     SD59x18 elapsed = _getElapsedTime(lastAuctionTime);
     uint purchasePrice;
@@ -184,51 +194,30 @@ contract LiquidationPair is ILiquidationPair {
     return purchasePrice;
   }
 
-  function computePurchasePrice(uint256 _amountOut, SD59x18 _initialPrice, SD59x18 _emissionRate, SD59x18 _elapsed) public view returns (uint256) {
-    return ContinuousGDA.purchasePrice(
-      _amountOut,
-      _emissionRate,
-      _initialPrice,
-      decayConstant,
-      _elapsed
-    );
-  }
-
-  function getElapsedTime() external returns (int256) {
-    _updateAuction(block.timestamp);
-    return convert(_getElapsedTime(lastAuctionTime));
-  }
-
-  function _updateAuction(uint256 _timestamp) internal {
+  function _checkUpdateAuction() internal {
+    uint32 _timestamp = uint32(block.timestamp);
     uint16 currentPeriod = _getPeriod(_timestamp);
     if (currentPeriod != period) {
-      uint lastNonZeroAmountIn;
-      uint lastNonZeroAmountOut;
-      if (amountIn > 0 && amountOut > 0) {
-        // if we sold something, then update the previous non-zero amount
-        previousAmountIn = amountIn;
-        previousAmountOut = amountOut;
-        lastNonZeroAmountIn = amountIn;
-        lastNonZeroAmountOut = amountOut;
-      } else {
-        lastNonZeroAmountIn = previousAmountIn;
-        lastNonZeroAmountOut = previousAmountOut;
-      }
-      amountIn = 0;
-      amountOut = 0;
-      lastAuctionTime = PERIOD_OFFSET + PERIOD_LENGTH * currentPeriod;
-      period = currentPeriod;
-      emissionRate = _computeEmissionRate();
-      initialPrice = _computeK(emissionRate, amountIn, amountOut);
+      _updateAuction(currentPeriod);
     }
   }
 
-  function getPeriodStart() external view returns (uint32) {
-    return _getPeriodStart(_getPeriod(uint32(block.timestamp)));
-  }
-
-  function getPeriodEnd() external view returns (uint32) {
-    return _getPeriodEnd(_getPeriod(uint32(block.timestamp)));
+  function _updateAuction(uint16 _period) internal {
+    if (amountIn > 0 && amountOut > 0) {
+      // if we sold something, then update the previous non-zero amount
+      lastNonZeroAmountIn = amountIn;
+      lastNonZeroAmountOut = amountOut;
+    }
+    amountIn = 0;
+    amountOut = 0;
+    lastAuctionTime = PERIOD_OFFSET + PERIOD_LENGTH * _period;
+    period = _period;
+    emissionRate = _computeEmissionRate();
+    if (emissionRate.unwrap() != 0) {
+      initialPrice = _computeK(emissionRate, uint112(lastNonZeroAmountIn), uint112(lastNonZeroAmountOut));
+    } else {
+      initialPrice = wrap(0);
+    }
   }
 
   function _getPeriodStart(uint32 _period) internal view returns (uint32) {

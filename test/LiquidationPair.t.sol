@@ -4,8 +4,13 @@ pragma solidity 0.8.17;
 import "forge-std/Test.sol";
 
 import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
-import { LiquidationPair } from "src/LiquidationPair.sol";
 import { ILiquidationSource } from "src/interfaces/ILiquidationSource.sol";
+import {
+  LiquidationPair,
+  AmountInZero,
+  AmountOutZero,
+  TargetFirstSaleTimeLtPeriodLength
+} from "src/LiquidationPair.sol";
 
 contract LiquidationPairTest is Test {
   /* ============ Variables ============ */
@@ -59,10 +64,52 @@ contract LiquidationPairTest is Test {
     );
   }
 
-  function testMaxAmountOut() public {
-    uint256 amount = 1e18;
-    mockLiquidatableBalanceOf(amount);
+  function testConstructor_amountInZero() public {
+    vm.expectRevert(abi.encodeWithSelector(AmountInZero.selector));
+    pair = new LiquidationPair(
+      source,
+      tokenIn,
+      tokenOut,
+      uint32(PERIOD_LENGTH),
+      uint32(PERIOD_OFFSET),
+      targetFirstSaleTime,
+      decayConstant,
+      0,
+      1e18
+    );
+  }
 
+  function testConstructor_amountOutZero() public {
+    vm.expectRevert(abi.encodeWithSelector(AmountOutZero.selector));
+    pair = new LiquidationPair(
+      source,
+      tokenIn,
+      tokenOut,
+      uint32(PERIOD_LENGTH),
+      uint32(PERIOD_OFFSET),
+      targetFirstSaleTime,
+      decayConstant,
+      1e18,
+      0
+    );
+  }
+
+  function testConstructor_zeroLiquidity() public {
+    mockLiquidatableBalanceOf(0);
+    pair = new LiquidationPair(
+      source,
+      tokenIn,
+      tokenOut,
+      uint32(PERIOD_LENGTH),
+      uint32(PERIOD_OFFSET),
+      targetFirstSaleTime,
+      decayConstant,
+      1e18,
+      1e18
+    );
+  }
+
+  function testMaxAmountOut() public {
     // At the start of the first period.
     // Nothing has been emitted yet.
     vm.warp(PERIOD_OFFSET);
@@ -85,56 +132,47 @@ contract LiquidationPairTest is Test {
     // price should match the exchange rate (less one from rounding)
     assertEq(amountIn, available - 1);
   }
-/*
-  function testGetAuction_init() public {
-    LiquidationPair.Auction memory auction = pair.getAuction();
-    assertEq(auction.amountIn, 0);
-    assertEq(auction.amountOut, 0);
-    assertEq(auction.period, 0);
-    assertEq(auction.lastAuctionTime, PERIOD_OFFSET);
-    assertEq(auction.emissionRate.unwrap(), convert(1e18).div(convert(int(PERIOD_LENGTH))).unwrap());
-  }
 
-  function testGetAuction_elapsedOne() public {
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH);
-    LiquidationPair.Auction memory auction = pair.getAuction();
-    assertEq(auction.amountIn, 0);
-    assertEq(auction.amountOut, 0);
-    assertEq(auction.period, 1);
-    assertEq(auction.lastAuctionTime, PERIOD_OFFSET + PERIOD_LENGTH);
-    assertEq(auction.emissionRate.unwrap(), convert(1e18).div(convert(int(PERIOD_LENGTH))).unwrap());
-  }
-
-  function testGetAuction_elapsedOne_lessClaimed() public {
-    mockLiquidatableBalanceOf(0.25e18);
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH);
-    LiquidationPair.Auction memory auction = pair.getAuction();
-    assertEq(auction.amountIn, 0);
-    assertEq(auction.amountOut, 0);
-    assertEq(auction.period, 1, "period");
-    assertEq(auction.lastAuctionTime, PERIOD_OFFSET + PERIOD_LENGTH);
-    assertEq(auction.emissionRate.unwrap(), convert(0.25e18).div(convert(int(PERIOD_LENGTH))).unwrap());
-  }
-
-  function testGetAuction_jumpMany() public {
-    mockLiquidatableBalanceOf(1.25e18);
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH * 4);
-    LiquidationPair.Auction memory auction = pair.getAuction();
-    assertEq(auction.amountIn, 0);
-    assertEq(auction.amountOut, 0);
-    assertEq(auction.period, 4, "period");
-    assertEq(auction.lastAuctionTime, PERIOD_OFFSET + PERIOD_LENGTH * 4);
-    assertEq(auction.emissionRate.unwrap(), convert(1.25e18).div(convert(int(PERIOD_LENGTH))).unwrap());
-  }
-*/
   function testComputeExactAmountIn_HappyPath() public {
     uint256 amountAvailable = 1e18;
     mockLiquidatableBalanceOf(amountAvailable);
 
     vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
+    assertGt(amountOut, 0);
     assertEq(pair.computeExactAmountIn(amountOut), amountOut-1, "equal at target sale time (with rounding error of -1)");
   }
+
+  function testComputeExactAmountIn_jumpToFutureWithNoLiquidity() public {
+    mockLiquidatableBalanceOf(0);
+    vm.warp(PERIOD_OFFSET*3 + targetFirstSaleTime);
+    uint amountOut = pair.maxAmountOut();
+    assertEq(amountOut, 0);
+    assertEq(pair.computeExactAmountIn(0), 0, "equal at target sale time (with rounding error of -1)");
+  }
+
+  function testComputeExactAmountIn_jumpToFutureWithMoreLiquidity() public {
+    mockLiquidatableBalanceOf(2e18);
+    vm.warp(PERIOD_OFFSET*3 + targetFirstSaleTime);
+    uint amountOut = pair.maxAmountOut();
+    assertGt(amountOut, 0);
+    assertEq(pair.computeExactAmountIn(amountOut), amountOut, "equal at target sale time");
+  }
+
+  // function testSwapExactAmountIn_sequential() public {
+  //   uint256 amountAvailable = 1e18;
+  //   mockLiquidatableBalanceOf(amountAvailable);
+  //   vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
+  //   uint amountOut = pair.maxAmountOut();
+  //   assertEq(pair.swapExactAmountOut(address(this), amountOut), amountOut-1, "equal at target sale time (with rounding error of -1)");
+
+
+  //   // now warp to next period
+
+  //   vm.warp(PERIOD_OFFSET*2 + targetFirstSaleTime);
+
+
+  // }
 
   /* ============ swapExactAmountOut ============ */
 
