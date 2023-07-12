@@ -17,8 +17,6 @@ contract LiquidationPair is ILiquidationPair {
   address public immutable tokenOut;
 
   SD59x18 public immutable decayConstant;
-  
-  SD59x18 public immutable smoothing = wrap(0.5e18);
 
   /// @notice Sets the minimum period length for auctions. When a period elapses a new auction begins.
   uint32 public immutable PERIOD_LENGTH;
@@ -28,6 +26,9 @@ contract LiquidationPair is ILiquidationPair {
   uint32 public immutable PERIOD_OFFSET;
 
   uint32 public immutable targetFirstSaleTime;
+
+  uint112 public previousAmountIn;
+  uint112 public previousAmountOut;
 
   /* ============ Structs ============ */
 
@@ -69,9 +70,8 @@ contract LiquidationPair is ILiquidationPair {
     // console2.log("GOT HEREEEE 22222");
 
     initialPrice = _computeK(emissionRate, _initialAmountIn, _initialAmountOut);
-
-    amountIn = _initialAmountIn;
-    amountOut = _initialAmountOut;
+    previousAmountIn = _initialAmountIn;
+    previousAmountOut = _initialAmountOut;
     lastAuctionTime = PERIOD_OFFSET;
   }
 
@@ -87,8 +87,8 @@ contract LiquidationPair is ILiquidationPair {
     _updateAuction(block.timestamp);
     return _maxAmountOut();
   }
-
-  function _maxAmountOut() internal returns (uint256) {
+  
+  function _maxAmountOut() internal view returns (uint256) {
     uint emissions = uint(convert(emissionRate.mul(_getElapsedTime(lastAuctionTime))));
     uint liquidatable = source.liquidatableBalanceOf(tokenOut);
     return emissions > liquidatable ? liquidatable : emissions;
@@ -132,8 +132,8 @@ contract LiquidationPair is ILiquidationPair {
     );
     require(swapAmountIn <= _amountInMax, "exceeds max amount in");
 
-    amountIn = uint112(uint(convert(smoothing.mul(convert(int(uint(amountIn)))).add(convert(1).sub(smoothing).mul(convert(int(swapAmountIn)))))));
-    amountOut = uint112(uint(convert(smoothing.mul(convert(int(uint(amountOut)))).add(convert(1).sub(smoothing).mul(convert(int(_amountOut)))))));
+    amountIn += uint112(swapAmountIn);
+    amountOut += uint112(_amountOut);
     lastAuctionTime += uint32(
       uint256(convert(convert(int256(_amountOut)).div(emissionRate)))
     );
@@ -202,10 +202,24 @@ contract LiquidationPair is ILiquidationPair {
   function _updateAuction(uint256 _timestamp) internal {
     uint16 currentPeriod = _getPeriod(_timestamp);
     if (currentPeriod != period) {
+      uint lastNonZeroAmountIn;
+      uint lastNonZeroAmountOut;
+      if (amountIn > 0 && amountOut > 0) {
+        // if we sold something, then update the previous non-zero amount
+        previousAmountIn = amountIn;
+        previousAmountOut = amountOut;
+        lastNonZeroAmountIn = amountIn;
+        lastNonZeroAmountOut = amountOut;
+      } else {
+        lastNonZeroAmountIn = previousAmountIn;
+        lastNonZeroAmountOut = previousAmountOut;
+      }
+      amountIn = 0;
+      amountOut = 0;
+      lastAuctionTime = PERIOD_OFFSET + PERIOD_LENGTH * currentPeriod;
+      period = currentPeriod;
       emissionRate = _computeEmissionRate();
       initialPrice = _computeK(emissionRate, amountIn, amountOut);
-      period = currentPeriod;
-      lastAuctionTime = PERIOD_OFFSET + PERIOD_LENGTH * currentPeriod;
     }
   }
 

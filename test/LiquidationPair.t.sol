@@ -61,7 +61,6 @@ contract LiquidationPairTest is Test {
 
   function testMaxAmountOut() public {
     uint256 amount = 1e18;
-    uint256 amountOut;
     mockLiquidatableBalanceOf(amount);
 
     // At the start of the first period.
@@ -130,7 +129,6 @@ contract LiquidationPairTest is Test {
 */
   function testComputeExactAmountIn_HappyPath() public {
     uint256 amountAvailable = 1e18;
-    uint256 amountIn;
     mockLiquidatableBalanceOf(amountAvailable);
 
     vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
