@@ -17,6 +17,8 @@ contract LiquidationPair is ILiquidationPair {
   address public immutable tokenOut;
 
   SD59x18 public immutable decayConstant;
+  
+  SD59x18 public immutable smoothing = wrap(0.5e18);
 
   /// @notice Sets the minimum period length for auctions. When a period elapses a new auction begins.
   uint32 public immutable PERIOD_LENGTH;
@@ -27,21 +29,14 @@ contract LiquidationPair is ILiquidationPair {
 
   uint32 public immutable targetFirstSaleTime;
 
-  /// @notice Storage for the auction.
-  Auction internal _auction;
-
   /* ============ Structs ============ */
 
-  struct Auction {
-    uint112 amountIn;
-    uint112 amountOut;
-    uint32 lastAuctionTime;
-    uint16 period;
-    SD59x18 emissionRate;
-    SD59x18 initialPrice;
-  }
-
-  int public auctionTimeOffset;
+  uint112 amountIn;
+  uint112 amountOut;
+  uint32 lastAuctionTime;
+  uint16 period;
+  SD59x18 emissionRate;
+  SD59x18 initialPrice;
 
   /* ============ Constructor ============ */
 
@@ -69,25 +64,15 @@ contract LiquidationPair is ILiquidationPair {
 
     // console2.log("GOT HEREEEE");
 
-    SD59x18 emissionRate = _computeEmissionRate();
+    emissionRate = _computeEmissionRate();
     
     // console2.log("GOT HEREEEE 22222");
 
-    SD59x18 initialPrice = _computeK(emissionRate, _initialAmountIn, _initialAmountOut);
+    initialPrice = _computeK(emissionRate, _initialAmountIn, _initialAmountOut);
 
-
-    // console2.log("GOT HEREEEE 3433");
-
-    _setAuction(
-      Auction({
-        lastAuctionTime: PERIOD_OFFSET,
-        amountIn: 0,
-        amountOut: 0,
-        period: 0,
-        emissionRate: emissionRate,
-        initialPrice: initialPrice
-      })
-    );
+    amountIn = _initialAmountIn;
+    amountOut = _initialAmountOut;
+    lastAuctionTime = PERIOD_OFFSET;
   }
 
   /* ============ External Read Methods ============ */
@@ -99,11 +84,12 @@ contract LiquidationPair is ILiquidationPair {
 
   /// @inheritdoc ILiquidationPair
   function maxAmountOut() external returns (uint256) {
-    return _maxAmountOut(_getAuction(uint32(block.timestamp)));
+    _updateAuction(block.timestamp);
+    return _maxAmountOut();
   }
 
-  function _maxAmountOut(Auction memory auction) internal returns (uint256) {
-    uint emissions = uint(convert(auction.emissionRate.mul(_getElapsedTime(auction.lastAuctionTime))));
+  function _maxAmountOut() internal returns (uint256) {
+    uint emissions = uint(convert(emissionRate.mul(_getElapsedTime(lastAuctionTime))));
     uint liquidatable = source.liquidatableBalanceOf(tokenOut);
     return emissions > liquidatable ? liquidatable : emissions;
   }
@@ -134,50 +120,26 @@ contract LiquidationPair is ILiquidationPair {
     uint256 _amountOut,
     uint256 _amountInMax
   ) external returns (uint256) {
-    Auction memory auction = _getAuction(uint32(block.timestamp));
-    require(_amountOut <= _maxAmountOut(auction), "exceeds available");
-    SD59x18 elapsed = _getElapsedTime(auction.lastAuctionTime);
-    uint amountIn = ContinuousGDA.purchasePrice(
+    _updateAuction(block.timestamp);
+    require(_amountOut <= _maxAmountOut(), "exceeds available");
+    SD59x18 elapsed = _getElapsedTime(lastAuctionTime);
+    uint swapAmountIn = ContinuousGDA.purchasePrice(
       _amountOut,
-      auction.emissionRate,
-      auction.initialPrice,
+      emissionRate,
+      initialPrice,
       decayConstant,
       elapsed
     );
-    require(amountIn <= _amountInMax, "exceeds max amount in");
+    require(swapAmountIn <= _amountInMax, "exceeds max amount in");
 
-    // console2.log("lastAuctionTime: ", auction.lastAuctionTime);
-    // console2.log("period: ", auction.period);
-
-    // increase lastAvailableAuctionStartTime with elapsed time (based on quantity)
-    
-    auction.amountIn += uint112(amountIn);
-    auction.amountOut += uint112(_amountOut);
-    auction.lastAuctionTime += uint32(
-      uint256(convert(convert(int256(_amountOut)).div(auction.emissionRate)))
+    amountIn = uint112(uint(convert(smoothing.mul(convert(int(uint(amountIn)))).add(convert(1).sub(smoothing).mul(convert(int(swapAmountIn)))))));
+    amountOut = uint112(uint(convert(smoothing.mul(convert(int(uint(amountOut)))).add(convert(1).sub(smoothing).mul(convert(int(_amountOut)))))));
+    lastAuctionTime += uint32(
+      uint256(convert(convert(int256(_amountOut)).div(emissionRate)))
     );
-    _setAuction(auction);
-    _swap(_account, _amountOut, amountIn);
+    _swap(_account, _amountOut, swapAmountIn);
 
-
-
-    // console2.log("auctionTimeOffset: ", auctionTimeOffset);
-
-    // console2.log("amountOut: ", _amountOut);
-    // console2.log("auction.initialPrice: ", convert(auction.initialPrice));
-    // SD59x18 currentPrice = convert(int256(amountIn)).div(convert(int256(_amountOut)));
-    // console2.log("currentPrice: ", currentPrice.unwrap());
-    // console2.log("priceAverage: ", priceAverage.unwrap());
-    // SD59x18 addition = currentPrice.mul(convert(1).sub(smoothing));
-    // console2.log("addition: ", addition.unwrap());
-    // SD59x18 muller = priceAverage.mul(smoothing);
-    // console2.log("muller: ", muller.unwrap());
-    // priceAverage = muller.add(addition);
-    // console2.log("new priceAverage: ", convert(priceAverage));
-
-    // AuctionPerSecond
-
-    return amountIn;
+    return swapAmountIn;
   }
 
   /* ============ Internal Functions ============ */
@@ -198,9 +160,9 @@ contract LiquidationPair is ILiquidationPair {
     uint256 _amountOut,
     uint32 _timestamp
   ) internal returns (uint256) {
-    Auction memory auction = _getAuction(_timestamp);
-    require(_amountOut <= _maxAmountOut(auction), "exceeds available");
-    SD59x18 elapsed = _getElapsedTime(auction.lastAuctionTime);
+    _updateAuction(_timestamp);
+    require(_amountOut <= _maxAmountOut(), "exceeds available");
+    SD59x18 elapsed = _getElapsedTime(lastAuctionTime);
     uint purchasePrice;
 
     (bool success, bytes memory returnData) =
@@ -208,8 +170,8 @@ contract LiquidationPair is ILiquidationPair {
         abi.encodeWithSelector(
           this.computePurchasePrice.selector,
           _amountOut,
-          auction.initialPrice,
-          auction.emissionRate,
+          initialPrice,
+          emissionRate,
           elapsed
         )
       );
@@ -232,37 +194,19 @@ contract LiquidationPair is ILiquidationPair {
     );
   }
 
-  function getAuction() external returns (Auction memory) {
-    return _getAuction(uint32(block.timestamp));
-  }
-
   function getElapsedTime() external returns (int256) {
-    return convert(_getElapsedTime(_auction.lastAuctionTime));
+    _updateAuction(block.timestamp);
+    return convert(_getElapsedTime(lastAuctionTime));
   }
 
-  function _getAuction(uint32 _timestamp) internal returns (Auction memory) {
-    Auction memory auction = _auction;
-
+  function _updateAuction(uint256 _timestamp) internal {
     uint16 currentPeriod = _getPeriod(_timestamp);
-    if (currentPeriod != auction.period) {
-      uint startTime = PERIOD_OFFSET + PERIOD_LENGTH * currentPeriod;
-      SD59x18 emissionRate = _computeEmissionRate();
-      SD59x18 initialPrice = _computeK(emissionRate, auction.amountIn, auction.amountOut);
-      auction = Auction({
-        amountIn: 0,
-        amountOut: 0,
-        lastAuctionTime: uint32(startTime),
-        period: currentPeriod,
-        emissionRate: emissionRate,
-        initialPrice: initialPrice
-      });
+    if (currentPeriod != period) {
+      emissionRate = _computeEmissionRate();
+      initialPrice = _computeK(emissionRate, amountIn, amountOut);
+      period = currentPeriod;
+      lastAuctionTime = PERIOD_OFFSET + PERIOD_LENGTH * currentPeriod;
     }
-
-    return auction;
-  }
-
-  function _setAuction(Auction memory auction) internal {
-    _auction = auction;
   }
 
   function getPeriodStart() external view returns (uint32) {
@@ -281,7 +225,7 @@ contract LiquidationPair is ILiquidationPair {
     return _getPeriodStart(_period) + PERIOD_LENGTH;
   }
 
-  function _getPeriod(uint32 _timestamp) internal view returns (uint16) {
+  function _getPeriod(uint256 _timestamp) internal view returns (uint16) {
     if (_timestamp < PERIOD_OFFSET) {
       return 0;
     }

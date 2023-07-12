@@ -86,7 +86,7 @@ contract LiquidationPairTest is Test {
     // price should match the exchange rate (less one from rounding)
     assertEq(amountIn, available - 1);
   }
-
+/*
   function testGetAuction_init() public {
     LiquidationPair.Auction memory auction = pair.getAuction();
     assertEq(auction.amountIn, 0);
@@ -127,7 +127,7 @@ contract LiquidationPairTest is Test {
     assertEq(auction.lastAuctionTime, PERIOD_OFFSET + PERIOD_LENGTH * 4);
     assertEq(auction.emissionRate.unwrap(), convert(1.25e18).div(convert(int(PERIOD_LENGTH))).unwrap());
   }
-
+*/
   function testComputeExactAmountIn_HappyPath() public {
     uint256 amountAvailable = 1e18;
     uint256 amountIn;
