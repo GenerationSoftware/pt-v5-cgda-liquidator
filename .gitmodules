@@ -15,6 +15,6 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
-[submodule "lib/pt-v5-liquidator-interface"]
-	path = lib/pt-v5-liquidator-interface
-	url = https://github.com/GenerationSoftware/pt-v5-liquidator-interface
+[submodule "lib/pt-v5-liquidator-interfaces"]
+	path = lib/pt-v5-liquidator-interfaces
+	url = https://github.com/GenerationSoftware/pt-v5-liquidator-interfaces
