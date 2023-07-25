@@ -9,7 +9,7 @@
 // import { LiquidationPair } from "src/LiquidationPair.sol";
 // import { LiquidationRouter } from "src/LiquidationRouter.sol";
 
-// import { ILiquidationSource } from "src/interfaces/ILiquidationSource.sol";
+// import { ILiquidationSource } from "v5-liquidator-interfaces/ILiquidationSource.sol";
 
 // import { BaseSetup } from "./utils/BaseSetup.sol";
 

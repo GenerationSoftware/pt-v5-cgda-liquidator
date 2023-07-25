@@ -4,13 +4,8 @@ pragma solidity 0.8.17;
 import "forge-std/Test.sol";
 
 import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
-import { ILiquidationSource } from "src/interfaces/ILiquidationSource.sol";
-import {
-  LiquidationPair,
-  AmountInZero,
-  AmountOutZero,
-  TargetFirstSaleTimeLtPeriodLength
-} from "src/LiquidationPair.sol";
+import { ILiquidationSource } from "v5-liquidator-interfaces/ILiquidationSource.sol";
+import { LiquidationPair, AmountInZero, AmountOutZero, TargetFirstSaleTimeLtPeriodLength } from "src/LiquidationPair.sol";
 
 contract LiquidationPairTest is Test {
   /* ============ Variables ============ */
@@ -140,20 +135,28 @@ contract LiquidationPairTest is Test {
     vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0);
-    assertEq(pair.computeExactAmountIn(amountOut), amountOut-1, "equal at target sale time (with rounding error of -1)");
+    assertEq(
+      pair.computeExactAmountIn(amountOut),
+      amountOut - 1,
+      "equal at target sale time (with rounding error of -1)"
+    );
   }
 
   function testComputeExactAmountIn_jumpToFutureWithNoLiquidity() public {
     mockLiquidatableBalanceOf(0);
-    vm.warp(PERIOD_OFFSET*3 + targetFirstSaleTime);
+    vm.warp(PERIOD_OFFSET * 3 + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertEq(amountOut, 0);
-    assertEq(pair.computeExactAmountIn(0), 0, "equal at target sale time (with rounding error of -1)");
+    assertEq(
+      pair.computeExactAmountIn(0),
+      0,
+      "equal at target sale time (with rounding error of -1)"
+    );
   }
 
   function testComputeExactAmountIn_jumpToFutureWithMoreLiquidity() public {
     mockLiquidatableBalanceOf(2e18);
-    vm.warp(PERIOD_OFFSET*3 + targetFirstSaleTime);
+    vm.warp(PERIOD_OFFSET * 3 + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0);
     assertEq(pair.computeExactAmountIn(amountOut), amountOut, "equal at target sale time");
@@ -166,11 +169,9 @@ contract LiquidationPairTest is Test {
   //   uint amountOut = pair.maxAmountOut();
   //   assertEq(pair.swapExactAmountOut(address(this), amountOut), amountOut-1, "equal at target sale time (with rounding error of -1)");
 
-
   //   // now warp to next period
 
   //   vm.warp(PERIOD_OFFSET*2 + targetFirstSaleTime);
-
 
   // }
 
@@ -183,30 +184,18 @@ contract LiquidationPairTest is Test {
     uint amountOut = pair.maxAmountOut();
 
     mockLiquidatableBalanceOf(amountAvailable);
-    mockLiquidate(
-      address(source),
-      alice,
-      tokenIn,
-      amountOut-1,
-      tokenOut,
-      amountOut,
-      true
-    );
+    mockLiquidate(address(source), alice, tokenIn, amountOut - 1, tokenOut, amountOut, true);
 
-    assertEq(pair.swapExactAmountOut(alice, amountOut, amountOut), amountOut-1, "equal at target sale time (with rounding error of -1)");
+    assertEq(
+      pair.swapExactAmountOut(alice, amountOut, amountOut),
+      amountOut - 1,
+      "equal at target sale time (with rounding error of -1)"
+    );
   }
 
   function swapAmountOut(uint256 amountOut) public returns (uint256 amountIn) {
     amountIn = pair.computeExactAmountIn(amountOut);
-    mockLiquidate(
-      address(source),
-      alice,
-      tokenIn,
-      amountIn,
-      tokenOut,
-      amountOut,
-      true
-    );
+    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, true);
     assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max));
   }
 
