@@ -6,7 +6,6 @@
 	path = lib/gradual-dutch-auction
 	url = https://github.com/FrankieIsLost/gradual-dutch-auction
 [submodule "lib/prb-math"]
-	branch = v3
 	path = lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
 [submodule "lib/ring-buffer-lib"]
