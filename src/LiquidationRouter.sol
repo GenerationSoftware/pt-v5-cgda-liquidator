@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
+
+import "forge-std/console2.sol";
 
 import "openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
@@ -7,18 +9,31 @@ import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { LiquidationPair } from "./LiquidationPair.sol";
 import { LiquidationPairFactory } from "./LiquidationPairFactory.sol";
 
+error UndefinedLiquidationPairFactory();
+error UnknownLiquidationPair(LiquidationPair liquidationPair);
+
 contract LiquidationRouter {
   using SafeERC20 for IERC20;
 
   /* ============ Events ============ */
   event LiquidationRouterCreated(LiquidationPairFactory indexed liquidationPairFactory);
 
+  event SwappedExactAmountOut(
+    LiquidationPair indexed liquidationPair,
+    address indexed receiver,
+    uint256 amountOut,
+    uint256 amountInMax,
+    uint256 amountIn
+  );
+
   /* ============ Variables ============ */
   LiquidationPairFactory internal immutable _liquidationPairFactory;
 
   /* ============ Constructor ============ */
   constructor(LiquidationPairFactory liquidationPairFactory_) {
-    require(address(liquidationPairFactory_) != address(0), "LR/LPF-not-address-zero");
+    if(address(liquidationPairFactory_) == address(0)) {
+      revert UndefinedLiquidationPairFactory();
+    }
     _liquidationPairFactory = liquidationPairFactory_;
 
     emit LiquidationRouterCreated(liquidationPairFactory_);
@@ -26,7 +41,9 @@ contract LiquidationRouter {
 
   /* ============ Modifiers ============ */
   modifier onlyTrustedLiquidationPair(LiquidationPair _liquidationPair) {
-    require(_liquidationPairFactory.deployedPairs(_liquidationPair), "LR/LP-not-from-LPF");
+    if (!_liquidationPairFactory.deployedPairs(_liquidationPair)) {
+      revert UnknownLiquidationPair(_liquidationPair);
+    }
     _;
   }
 
@@ -44,6 +61,10 @@ contract LiquidationRouter {
       _liquidationPair.computeExactAmountIn(_amountOut)
     );
 
-    return _liquidationPair.swapExactAmountOut(_receiver, _amountOut, _amountInMax);
+    uint256 amountIn = _liquidationPair.swapExactAmountOut(_receiver, _amountOut, _amountInMax);
+
+    emit SwappedExactAmountOut(_liquidationPair, _receiver, _amountOut, _amountInMax, amountIn);
+
+    return amountIn;
   }
 }

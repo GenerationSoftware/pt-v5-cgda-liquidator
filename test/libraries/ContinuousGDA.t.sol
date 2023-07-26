@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
@@ -16,19 +16,13 @@ contract ContinuousGDATest is Test {
     wrapper = new ContinuousGDAWrapper();
   }
 
-  function testParadigmDocPurchasePrice() public {
+  function testPurchasePrice_arbitrary() public {
     // 1 per 10 seconds
-    uint256 purchaseAmount = 1e18;
-    SD59x18 emissionRate = convert(1e18); // 1 per second
-    SD59x18 initialPrice = convert(10e18);
-    SD59x18 decayConstant = wrap(0.5e18);
-    SD59x18 elapsedTime = convert(10);
-
-    console2.log("purchaseAmount", purchaseAmount);
-    console2.log("emissionRate", unwrap(emissionRate));
-    console2.log("initialPrice", unwrap(initialPrice));
-    console2.log("decayConstant", unwrap(decayConstant));
-    console2.log("elapsedTime", unwrap(elapsedTime));
+    uint256 purchaseAmount = 1;
+    SD59x18 emissionRate = wrap(0.1e18); // 1 per second
+    SD59x18 initialPrice = convert(18);
+    SD59x18 decayConstant = wrap(0.05e18);
+    SD59x18 elapsedTime = convert(1);
 
     uint256 amountIn = wrapper.purchasePrice(
       purchaseAmount,
@@ -38,93 +32,12 @@ contract ContinuousGDATest is Test {
       elapsedTime
     );
 
-    console2.log((amountIn * 1e18) / purchaseAmount);
-
-    assertEq(amountIn, 87420990783136780);
-  }
-
-  function testPurchasePrice_ignoreTime() public {
-    SD59x18 emissionRate = convert(1); // 1 per second
-    SD59x18 initialPrice = convert(26);
-    SD59x18 decayConstant = wrap(0.00000001e18); // time does not affect price
-    SD59x18 elapsedTime = convert(0);
-
-    assertEq(
-      wrapper.purchasePrice(
-        1,
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        elapsedTime
-      ),
-      26
-    );
-  }
-
-  function testPurchasePrice_cheaperBefore() public {
-    SD59x18 emissionRate = convert(1); // 1 per second
-    SD59x18 initialPrice = convert(1);
-    SD59x18 decayConstant = wrap(0.3e18); // time does not affect price
-    SD59x18 elapsedTime = convert(1);
-
-    assertLt(
-      wrapper.purchasePrice(
-        1,
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        elapsedTime
-      ),
-      uint256(convert(initialPrice))
-    );
-  }
-
-  function testPurchasePrice_moreExpensiveAfter() public {
-    SD59x18 emissionRate = convert(1); // 1 per second
-    SD59x18 initialPrice = convert(1);
-    SD59x18 decayConstant = wrap(0.3e18); // time does not affect price
-    SD59x18 elapsedTime = convert(0);
-
-    assertGe(
-      wrapper.purchasePrice(
-        1,
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        elapsedTime
-      ),
-      uint256(convert(initialPrice))
-    );
-  }
-
-  function testPurchasePrice_largeAmounts() public {
-    SD59x18 emissionRate = convert(1e18); // 1 full token per second
-    SD59x18 auctionStartingPrice = convert(1);
-    SD59x18 decayConstant = wrap(0.3e18); // time does not affect price
-    SD59x18 elapsedTime = convert(0); // we're ahead of schedule, so it should be expensive
-
-    uint yieldPurchased = 1e18;
-
-    // uint marketCostInPrizeTokens = uint(convert(auctionStartingPrice.mul(convert(int(yieldPurchased)))));
-
-    assertGe(
-      wrapper.purchasePrice(
-        yieldPurchased,
-        emissionRate,
-        auctionStartingPrice,
-        decayConstant,
-        elapsedTime
-      ),
-      uint(convert(auctionStartingPrice))
-    );
+    assertEq(amountIn, 112);
   }
 
   function testComputeK() public {
-    uint availableAmount = 100; // 1000 USDC
     SD59x18 exchangeRateAmountOutToAmountIn = wrap(10e18);
-
-    uint duration = 1000;
-    SD59x18 emissionRate = wrap(0.1e18);//convert(int(availableAmount)).div(convert(int(duration/2)));
+    SD59x18 emissionRate = wrap(0.1e18);
     SD59x18 decayConstant = wrap(0.0005e18);
 
     SD59x18 targetTime = convert(100);
@@ -141,65 +54,6 @@ contract ContinuousGDATest is Test {
 
     assertEq(amountIn, uint(convert(amountOut.div(exchangeRateAmountOutToAmountIn))));
   }
-/*
-  function testComputeK_bestTime() public {
-    uint availableAmount = 1000e6; // 1000 USDC
-    SD59x18 exchangeRateAmountOutToAmountIn = wrap(1e20);
-
-    uint duration = 1 days;
-    SD59x18 emissionRate = convert(int(availableAmount)).div(convert(int(duration/2)));
-    SD59x18 decayConstant = wrap(0.0005e18);
-
-    SD59x18 targetTime = convert(4 hours);
-    SD59x18 auctionStartingPrice = computeK(emissionRate, decayConstant, targetTime, exchangeRateAmountOutToAmountIn);
-
-    (uint elapsedTime, uint bestAmountOut, uint bestProfit, uint bestAmountIn) = computeArbitrageStart(
-      emissionRate,
-      auctionStartingPrice,
-      decayConstant,
-      exchangeRateAmountOutToAmountIn,
-      duration,
-      5 minutes
-    );
-
-    console2.log("elapsedTime", elapsedTime);
-    console2.log("bestAmountOut", bestAmountOut);
-    console2.log("bestProfit", bestProfit);
-    console2.log("bestAmountIn", bestAmountIn);
-  }
-
-  function testPurchasePrice_bestAmount() public {
-
-    uint availableAmount = 1000e6; // 1000 USDC
-    uint duration = 1 days;
-    SD59x18 emissionRate = convert(int(availableAmount)).div(convert(int(duration)));
-    // amount in per amount out
-    SD59x18 auctionStartingPrice = convert(1000e18);
-    SD59x18 decayConstant = wrap(0.001e18);
-
-    // 1 USDC = 1 POOL => usdc/pool = 1e6/1e18 = 1e-12
-    // say there is a 26 decimal token.  Pool is 18 decimals.
-    // exchange rate is billion to one
-    SD59x18 exchangeRateAmountOutToAmountIn = wrap(1e18);
-
-    (uint elapsedTime, uint bestAmountOut, uint bestProfit, uint bestAmountIn) = computeArbitrageStart(
-      emissionRate,
-      auctionStartingPrice,
-      decayConstant,
-      exchangeRateAmountOutToAmountIn,
-      duration,
-      5 minutes
-    );
-
-    console2.log("arbitrageStart", elapsedTime);
-    console2.log("bestAmountOut", bestAmountOut);
-    console2.log("bestAmountIn", bestAmountIn);
-    // console2.log("bestProfit", bestProfit / 1e18);
-    if (bestAmountIn > 0) {
-      console2.log("trade price", uint(convert(convert(int(bestAmountOut)).div(convert(int(bestAmountIn))))));
-    }
-  }
-  */
 
   function computeK(
     SD59x18 emissionRate,

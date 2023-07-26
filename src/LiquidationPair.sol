@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "forge-std/console2.sol";
 
@@ -26,11 +26,11 @@ contract LiquidationPair is ILiquidationPair {
   SD59x18 public immutable decayConstant;
 
   /// @notice Sets the minimum period length for auctions. When a period elapses a new auction begins.
-  uint256 public immutable PERIOD_LENGTH;
+  uint256 public immutable periodLength;
 
   /// @notice Sets the beginning timestamp for the first period.
-  /// @dev Ensure that the PERIOD_OFFSET is in the past.
-  uint256 public immutable PERIOD_OFFSET;
+  /// @dev Ensure that the periodOffset is in the past.
+  uint256 public immutable periodOffset;
 
   uint32 public immutable targetFirstSaleTime;
 
@@ -67,27 +67,39 @@ contract LiquidationPair is ILiquidationPair {
     tokenIn = _tokenIn;
     tokenOut = _tokenOut;
     decayConstant = _decayConstant;
-    PERIOD_LENGTH = _periodLength;
-    PERIOD_OFFSET = _periodOffset;
+    periodLength = _periodLength;
+    periodOffset = _periodOffset;
     targetFirstSaleTime = _targetFirstSaleTime;
 
+    // console2.log("GOT here?");
+
     // convert to event
-    if (targetFirstSaleTime >= PERIOD_LENGTH) {
-      revert TargetFirstSaleTimeLtPeriodLength(targetFirstSaleTime, PERIOD_LENGTH);
+    if (targetFirstSaleTime >= periodLength) {
+      revert TargetFirstSaleTimeLtPeriodLength(targetFirstSaleTime, periodLength);
     }
+
+    // console2.log("GOT here? 2");
 
     if (_initialAmountIn == 0) {
       revert AmountInZero();
     }
+
+
+    // console2.log("GOT here?3 ");
+
     if (_initialAmountOut == 0) {
       revert AmountOutZero();
     }
+
+    // console2.log("GOT here? 4");
 
     _lastNonZeroAmountIn = _initialAmountIn;
     _lastNonZeroAmountOut = _initialAmountOut;
     minimumAuctionAmount = _minimumAuctionAmount;
 
     _updateAuction(0);
+
+    // console2.log("GOT here? 5");
   }
 
   /* ============ External Read Methods ============ */
@@ -119,7 +131,7 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @inheritdoc ILiquidationPair
-  function computeExactAmountOut(uint256 _amountIn) external returns (uint256) {
+  function computeExactAmountOut(uint256 __amountIn) external returns (uint256) {
     // console2.log("TODO: computeExactAmountOut");
     return 0;
   }
@@ -151,9 +163,9 @@ contract LiquidationPair is ILiquidationPair {
 
   /// @inheritdoc ILiquidationPair
   function swapExactAmountIn(
-    address _receiver,
-    uint256 _amountIn,
-    uint256 _amountOutMin
+    address __receiver,
+    uint256 __amountIn,
+    uint256 __amountOutMin
   ) external returns (uint256) {
     // console2.log("TODO: swapExactAmountIn");
     return 0;
@@ -179,15 +191,15 @@ contract LiquidationPair is ILiquidationPair {
 
   function computePurchasePrice(
     uint256 _amountOut,
-    SD59x18 _initialPrice,
-    SD59x18 _emissionRate,
+    SD59x18 __initialPrice,
+    SD59x18 __emissionRate,
     SD59x18 _elapsed
   ) public view returns (uint256) {
     return
       ContinuousGDA.purchasePrice(
         _amountOut,
-        _emissionRate,
-        _initialPrice,
+        __emissionRate,
+        __initialPrice,
         decayConstant,
         _elapsed
       );
@@ -206,6 +218,16 @@ contract LiquidationPair is ILiquidationPair {
   function getPeriodEnd() external returns (uint256) {
     _checkUpdateAuction();
     return _getPeriodEnd(_getPeriod());
+  }
+
+  function lastNonZeroAmountIn() external returns (uint112) {
+    _checkUpdateAuction();
+    return _lastNonZeroAmountIn;
+  }
+
+  function lastNonZeroAmountOut() external returns (uint112) {
+    _checkUpdateAuction();
+    return _lastNonZeroAmountOut;
   }
 
   /* ============ Internal Functions ============ */
@@ -229,7 +251,7 @@ contract LiquidationPair is ILiquidationPair {
       amount = 0;
       // console2.log("AMOUNT IS ZERO");
     }
-    return convert(int256(amount)).div(convert(int32(int(PERIOD_LENGTH))));
+    return convert(int256(amount)).div(convert(int32(int(periodLength))));
   }
 
   function _getElapsedTime() internal view returns (SD59x18) {
@@ -277,13 +299,13 @@ contract LiquidationPair is ILiquidationPair {
     }
     _amountInForPeriod = 0;
     _amountOutForPeriod = 0;
-    _lastAuctionTime = uint48(PERIOD_OFFSET + PERIOD_LENGTH * __period);
+    _lastAuctionTime = uint48(periodOffset + periodLength * __period);
     _period = uint16(__period);
-    SD59x18 emissionRate = _computeEmissionRate();
-    _emissionRate = emissionRate;
+    SD59x18 emissionRate_ = _computeEmissionRate();
+    _emissionRate = emissionRate_;
     if (_emissionRate.unwrap() != 0) {
       _initialPrice = _computeK(
-        emissionRate,
+        emissionRate_,
         _lastNonZeroAmountIn,
         _lastNonZeroAmountOut
       );
@@ -293,35 +315,34 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   function _getPeriodStart(uint256 __period) internal view returns (uint256) {
-    return PERIOD_OFFSET + __period * PERIOD_LENGTH;
+    return periodOffset + __period * periodLength;
   }
 
   function _getPeriodEnd(uint256 __period) internal view returns (uint256) {
-    return _getPeriodStart(__period) + PERIOD_LENGTH;
+    return _getPeriodStart(__period) + periodLength;
   }
 
   function _getPeriod() internal view returns (uint256) {
     uint256 _timestamp = block.timestamp;
-    if (_timestamp < PERIOD_OFFSET) {
+    if (_timestamp < periodOffset) {
       return 0;
     }
-    return (_timestamp - PERIOD_OFFSET) / PERIOD_LENGTH;
+    return (_timestamp - periodOffset) / periodLength;
   }
 
   function _computeK(
-    SD59x18 _emissionRate,
+    SD59x18 __emissionRate,
     uint112 _amountIn,
     uint112 _amountOut
   ) internal view returns (SD59x18) {
     SD59x18 timeSinceLastAuctionStart = convert(int(uint(targetFirstSaleTime)));
-    SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(_emissionRate);
+    SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(__emissionRate);
     SD59x18 exchangeRateAmountInToAmountOut = _amountOut > 0
       ? convert(int(uint(_amountIn))).div(convert(int(uint(_amountOut))))
       : wrap(0);
-    // console2.log("_computeK exchangeRateAmountInToAmountOut", exchangeRateAmountInToAmountOut.unwrap());
     SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
     SD59x18 result = ContinuousGDA.computeK(
-      _emissionRate,
+      __emissionRate,
       decayConstant,
       timeSinceLastAuctionStart,
       purchaseAmount,

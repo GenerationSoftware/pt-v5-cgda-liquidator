@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "./LiquidationPair.sol";
 
 contract LiquidationPairFactory {
   /* ============ Events ============ */
   event PairCreated(
+    LiquidationPair indexed pair,
     ILiquidationSource source,
     address tokenIn,
     address tokenOut,
@@ -41,7 +42,7 @@ contract LiquidationPairFactory {
     SD59x18 _decayConstant,
     uint112 _initialAmountIn,
     uint112 _initialAmountOut,
-    uint112 _minimumAuctionAmount
+    uint256 _minimumAuctionAmount
   ) external returns (LiquidationPair) {
     LiquidationPair _liquidationPair = new LiquidationPair(
       _source,
@@ -60,6 +61,7 @@ contract LiquidationPairFactory {
     deployedPairs[_liquidationPair] = true;
 
     emit PairCreated(
+      _liquidationPair,
       _source,
       _tokenIn,
       _tokenOut,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "forge-std/console2.sol";
 import "forge-std/Test.sol";
@@ -26,8 +26,8 @@ contract LiquidationPairTest is Test {
   address public tokenOut;
   SD59x18 initialTokenOutPrice;
   SD59x18 decayConstant;
-  uint PERIOD_LENGTH = 1 days;
-  uint PERIOD_OFFSET = 1 days;
+  uint periodLength = 1 days;
+  uint periodOffset = 1 days;
   uint32 targetFirstSaleTime = 1 hours;
   uint112 initialAmountIn = 1e18;
   uint112 initialAmountOut = 1e18;
@@ -42,7 +42,7 @@ contract LiquidationPairTest is Test {
   /* ============ Set up ============ */
 
   function setUp() public {
-    vm.warp(PERIOD_OFFSET);
+    vm.warp(periodOffset);
 
     alice = makeAddr("Alice");
 
@@ -64,8 +64,8 @@ contract LiquidationPairTest is Test {
       source,
       tokenIn,
       tokenOut,
-      uint32(PERIOD_LENGTH),
-      uint32(PERIOD_OFFSET),
+      uint32(periodLength),
+      uint32(periodOffset),
       targetFirstSaleTime,
       decayConstant,
       0,
@@ -80,8 +80,8 @@ contract LiquidationPairTest is Test {
       source,
       tokenIn,
       tokenOut,
-      uint32(PERIOD_LENGTH),
-      uint32(PERIOD_OFFSET),
+      uint32(periodLength),
+      uint32(periodOffset),
       targetFirstSaleTime,
       decayConstant,
       1e18,
@@ -96,8 +96,8 @@ contract LiquidationPairTest is Test {
       source,
       tokenIn,
       tokenOut,
-      uint32(PERIOD_LENGTH),
-      uint32(PERIOD_OFFSET),
+      uint32(periodLength),
+      uint32(periodOffset),
       targetFirstSaleTime,
       decayConstant,
       1e18,
@@ -114,67 +114,67 @@ contract LiquidationPairTest is Test {
   function testMaxAmountOut() public {
     // At the start of the first period.
     // Nothing has been emitted yet.
-    vm.warp(PERIOD_OFFSET);
+    vm.warp(periodOffset);
     assertEq(pair.maxAmountOut(), 0);
 
-    vm.warp(PERIOD_OFFSET + (PERIOD_LENGTH / 2));
+    vm.warp(periodOffset + (periodLength / 2));
     assertEq(pair.maxAmountOut(), 0.499999999999999999e18, "half amount");
 
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH - 1);
+    vm.warp(periodOffset + periodLength - 1);
     assertEq(pair.maxAmountOut(), 0.999988425925925925e18, "max");
   }
 
   function testGetElapsedTime_beginning() public {
-    vm.warp(PERIOD_OFFSET);
+    vm.warp(periodOffset);
     assertEq(pair.getElapsedTime(), 0);
   }
 
   function testGetElapsedTime_middle() public {
-    vm.warp(PERIOD_OFFSET + (PERIOD_LENGTH / 2));
-    assertEq(pair.getElapsedTime(), (PERIOD_LENGTH / 2));
+    vm.warp(periodOffset + (periodLength / 2));
+    assertEq(pair.getElapsedTime(), (periodLength / 2));
   }
 
   function testGetElapsedTime_end() public {
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH - 1);
-    assertEq(pair.getElapsedTime(), PERIOD_LENGTH - 1);
+    vm.warp(periodOffset + periodLength - 1);
+    assertEq(pair.getElapsedTime(), periodLength - 1);
   }
 
   function testGetElapsedTime_next() public {
-    vm.warp(PERIOD_OFFSET + (PERIOD_LENGTH));
+    vm.warp(periodOffset + (periodLength));
     assertEq(pair.getElapsedTime(), 0);
   }
 
   function testGetPeriodStart_before() public {
-    vm.warp(PERIOD_OFFSET / 2);
-    assertEq(pair.getPeriodStart(), PERIOD_OFFSET);
+    vm.warp(periodOffset / 2);
+    assertEq(pair.getPeriodStart(), periodOffset);
   }
 
   function testGetPeriodStart_beginning() public {
-    assertEq(pair.getPeriodStart(), PERIOD_OFFSET);
+    assertEq(pair.getPeriodStart(), periodOffset);
   }
 
   function testGetPeriodStart_middle() public {
-    vm.warp(PERIOD_OFFSET + (PERIOD_LENGTH / 2));
-    assertEq(pair.getPeriodStart(), PERIOD_OFFSET);
+    vm.warp(periodOffset + (periodLength / 2));
+    assertEq(pair.getPeriodStart(), periodOffset);
   }
 
   function testGetPeriodStart_end() public {
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH - 1);
-    assertEq(pair.getPeriodStart(), PERIOD_OFFSET);
+    vm.warp(periodOffset + periodLength - 1);
+    assertEq(pair.getPeriodStart(), periodOffset);
   }
 
   function testGetPeriodStart_next() public {
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH);
-    assertEq(pair.getPeriodStart(), PERIOD_OFFSET + PERIOD_LENGTH);
+    vm.warp(periodOffset + periodLength);
+    assertEq(pair.getPeriodStart(), periodOffset + periodLength);
   }
 
   function testGetPeriodEnd_beginning() public {
-    assertEq(pair.getPeriodEnd(), PERIOD_OFFSET + PERIOD_LENGTH);
+    assertEq(pair.getPeriodEnd(), periodOffset + periodLength);
   }
 
   function testMaxAmountOut_insufficientYield() public {
     mockLiquidatableBalanceOf(1e18 - 1); // just under the minimum
-    vm.warp(PERIOD_OFFSET + (PERIOD_LENGTH / 2));
+    vm.warp(periodOffset + (periodLength / 2));
     minimumAuctionAmount = 1e18;
     pair = newPair();
     assertEq(pair.maxAmountOut(), 0, "max");
@@ -183,7 +183,7 @@ contract LiquidationPairTest is Test {
   /* ============ computeExactAmountIn ============ */
 
   function testComputeExactAmountIn_targetTime() public {
-    vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
+    vm.warp(periodOffset + targetFirstSaleTime);
     uint available = pair.maxAmountOut();
     // halfway through the auction time, but we're trying to liquidate everything
     uint256 amountIn = pair.computeExactAmountIn(available);
@@ -195,7 +195,7 @@ contract LiquidationPairTest is Test {
     uint256 amountAvailable = 1e18;
     mockLiquidatableBalanceOf(amountAvailable);
 
-    vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
+    vm.warp(periodOffset + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0);
     assertEq(
@@ -208,7 +208,7 @@ contract LiquidationPairTest is Test {
   function testComputeExactAmountIn_exceedsAvailable() public {
     uint256 amountAvailable = 1e18;
     mockLiquidatableBalanceOf(amountAvailable);
-    vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
+    vm.warp(periodOffset + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     vm.expectRevert(abi.encodeWithSelector(SwapExceedsAvailable.selector, amountOut*2, amountOut));
     pair.computeExactAmountIn(amountOut*2);
@@ -216,7 +216,7 @@ contract LiquidationPairTest is Test {
 
   function testComputeExactAmountIn_jumpToFutureWithNoLiquidity() public {
     mockLiquidatableBalanceOf(0);
-    vm.warp(PERIOD_OFFSET * 3 + targetFirstSaleTime);
+    vm.warp(periodOffset * 3 + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertEq(amountOut, 0);
     assertEq(
@@ -228,7 +228,7 @@ contract LiquidationPairTest is Test {
 
   function testComputeExactAmountIn_jumpToFutureWithMoreLiquidity() public {
     mockLiquidatableBalanceOf(2e18);
-    vm.warp(PERIOD_OFFSET * 3 + targetFirstSaleTime);
+    vm.warp(periodOffset * 3 + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0);
     assertEq(pair.computeExactAmountIn(amountOut), amountOut, "equal at target sale time");
@@ -239,19 +239,19 @@ contract LiquidationPairTest is Test {
    */
   function testComputeExactAmountIn_priceChangeThenGap() public {
     mockLiquidatableBalanceOf(2e18);
-    vm.warp(PERIOD_OFFSET + targetFirstSaleTime*2); // first sale is later than normal. approximately 1:2 instead of 1:1.
+    vm.warp(periodOffset + targetFirstSaleTime*2); // first sale is later than normal. approximately 1:2 instead of 1:1.
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0, "amount out is non-zero");
     uint amountIn = swapAmountOut(amountOut); // incur the price change, because first sale is so delayed
 
     // go to next period, and nothing should be available
-    vm.warp(PERIOD_OFFSET * 2);
+    vm.warp(periodOffset * 2);
     mockLiquidatableBalanceOf(0);
     assertEq(pair.maxAmountOut(), 0, "no yield available");
 
     // go to later period, and the price should adjust
     mockLiquidatableBalanceOf(2e18);
-    vm.warp(PERIOD_OFFSET * 4 + targetFirstSaleTime);
+    vm.warp(periodOffset * 4 + targetFirstSaleTime);
     uint laterAmountOut = pair.maxAmountOut();
     assertEq(amountOut, laterAmountOut, "same amount of yield is available");
     assertEq(pair.computeExactAmountIn(laterAmountOut), amountIn, "price has adjusted so that target time is the same");
@@ -267,12 +267,12 @@ contract LiquidationPairTest is Test {
   /* ============ swapExactAmountOut ============ */
 
   function testEmissionRate_nonZero() public {
-    assertEq(pair.emissionRate().unwrap(), convert(1e18).div(convert(int(PERIOD_LENGTH))).unwrap());
+    assertEq(pair.emissionRate().unwrap(), convert(1e18).div(convert(int(periodLength))).unwrap());
   }
 
   function testEmissionRate_zero() public {
     mockLiquidatableBalanceOf(0);
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH);
+    vm.warp(periodOffset + periodLength);
     assertEq(pair.emissionRate().unwrap(), 0);
   }
 
@@ -282,14 +282,14 @@ contract LiquidationPairTest is Test {
 
   function testInitialPrice_zero() public {
     mockLiquidatableBalanceOf(0);
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH);
+    vm.warp(periodOffset + periodLength);
     assertEq(pair.initialPrice().unwrap(), 0);
   }
 
   function testSwapExactAmountOut_HappyPath() public {
     uint256 amountAvailable = 1e18;
 
-    vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
+    vm.warp(periodOffset + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
 
     mockLiquidatableBalanceOf(amountAvailable);
@@ -297,7 +297,7 @@ contract LiquidationPairTest is Test {
 
     assertEq(pair.amountInForPeriod(), 0, "amount in for period is zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out for period is zero");
-    assertEq(pair.lastAuctionTime(), PERIOD_OFFSET);
+    assertEq(pair.lastAuctionTime(), periodOffset);
 
     assertEq(
       pair.swapExactAmountOut(alice, amountOut, amountOut),
@@ -307,18 +307,18 @@ contract LiquidationPairTest is Test {
 
     assertEq(pair.amountInForPeriod(), amountOut - 1, "amount in was increased");
     assertEq(pair.amountOutForPeriod(), amountOut, "amount out was increased");
-    assertEq(pair.lastAuctionTime(), PERIOD_OFFSET + targetFirstSaleTime - 1, "last auction increased to target time (less loss of precision)");
+    assertEq(pair.lastAuctionTime(), periodOffset + targetFirstSaleTime - 1, "last auction increased to target time (less loss of precision)");
 
-    vm.warp(PERIOD_OFFSET + PERIOD_LENGTH);
+    vm.warp(periodOffset + periodLength);
 
     assertEq(pair.amountInForPeriod(), 0, "amount in was reset to zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out was reset to zero");
-    assertEq(pair.lastAuctionTime(), PERIOD_OFFSET + PERIOD_LENGTH);
+    assertEq(pair.lastAuctionTime(), periodOffset + periodLength);
   }
 
   function testSwapExactAmountOut_insufficient() public {
     uint256 amountAvailable = 1e18;
-    vm.warp(PERIOD_OFFSET + targetFirstSaleTime);
+    vm.warp(periodOffset + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     mockLiquidatableBalanceOf(amountAvailable);
     uint maxAmountIn = amountOut/2; // assume it's almost 1:1 exchange rate
@@ -370,8 +370,8 @@ contract LiquidationPairTest is Test {
       source,
       tokenIn,
       tokenOut,
-      uint32(PERIOD_LENGTH),
-      uint32(PERIOD_OFFSET),
+      uint32(periodLength),
+      uint32(periodOffset),
       targetFirstSaleTime,
       decayConstant,
       initialAmountIn,

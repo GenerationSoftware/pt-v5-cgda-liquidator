@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
 import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
@@ -11,35 +11,44 @@ import { LiquidationPair } from "../src/LiquidationPair.sol";
 contract LiquidationPairFactoryTest is Test {
   /* ============ Variables ============ */
   LiquidationPairFactory public factory;
-  address public tokenIn;
-  address public tokenOut;
   address public source;
   address public target;
+  address tokenIn;
+  address tokenOut;
+  uint32 periodLength = 1 days;
+  uint32 periodOffset = 7 days;
+  uint32 targetFirstSaleTime = 1 hours;
+  SD59x18 decayConstant = wrap(0.007e18);
+  uint112 initialAmountIn = 1e18;
+  uint112 initialAmountOut = 2e18;
+  uint256 minimumAuctionAmount = 1e18;
 
   /* ============ Events ============ */
 
   event PairCreated(
-    LiquidationPair indexed liquidator,
-    ILiquidationSource indexed source,
-    address indexed tokenIn,
+    LiquidationPair indexed pair,
+    ILiquidationSource source,
+    address tokenIn,
     address tokenOut,
-    UFixed32x4 swapMultiplier,
-    UFixed32x4 liquidityFraction,
-    uint128 virtualReserveIn,
-    uint128 virtualReserveOut,
-    uint256 minK
+    uint32 periodLength,
+    uint32 periodOffset,
+    uint32 targetFirstSaleTime,
+    SD59x18 decayConstant,
+    uint112 initialAmountIn,
+    uint112 initialAmountOut,
+    uint256 minimumAuctionAmount
   );
 
   /* ============ Set up ============ */
 
-  function setUp() public virtual override {
-    super.setUp();
+  function setUp() public {
     // Contract setup
     factory = new LiquidationPairFactory();
-    tokenIn = utils.generateAddress("tokenIn");
-    tokenOut = utils.generateAddress("tokenOut");
-    source = utils.generateAddress("source");
-    target = utils.generateAddress("target");
+    tokenIn = makeAddr("tokenIn");
+    tokenOut = makeAddr("tokenOut");
+    source = makeAddr("source");
+    vm.etch(source, "ILiquidationSource");
+    target = makeAddr("target");
   }
 
   /* ============ External functions ============ */
@@ -47,81 +56,63 @@ contract LiquidationPairFactoryTest is Test {
   /* ============ createPair ============ */
 
   function testCreatePair() public {
-    vm.expectEmit(false, true, true, true);
+
+
+    vm.expectEmit(false, false, false, true);
     emit PairCreated(
       LiquidationPair(0x0000000000000000000000000000000000000000),
       ILiquidationSource(source),
       tokenIn,
       tokenOut,
-      UFixed32x4.wrap(.3e4),
-      UFixed32x4.wrap(.02e4),
-      100,
-      100,
-      200
+      periodLength,
+      periodOffset,
+      targetFirstSaleTime,
+      decayConstant,
+      initialAmountIn,
+      initialAmountOut,
+      minimumAuctionAmount
     );
+
+    mockLiquidatableBalanceOf(0);
+
+    assertEq(factory.totalPairs(), 0, "no pairs exist");
 
     LiquidationPair lp = factory.createPair(
       ILiquidationSource(source),
       tokenIn,
       tokenOut,
-      UFixed32x4.wrap(.3e4),
-      UFixed32x4.wrap(.02e4),
-      100,
-      100,
-      200
+      periodLength,
+      periodOffset,
+      targetFirstSaleTime,
+      decayConstant,
+      initialAmountIn,
+      initialAmountOut,
+      minimumAuctionAmount
     );
 
-    mockTarget(source, target);
+    assertEq(factory.totalPairs(), 1, "one pair exists");
+    assertEq(address(factory.allPairs(0)), address(lp), "pair is in array");
+
+    assertTrue(factory.deployedPairs(lp));
 
     assertEq(address(lp.source()), source);
-    assertEq(lp.target(), target);
     assertEq(address(lp.tokenIn()), tokenIn);
     assertEq(address(lp.tokenOut()), tokenOut);
-    assertEq(UFixed32x4.unwrap(lp.swapMultiplier()), .3e4);
-    assertEq(UFixed32x4.unwrap(lp.liquidityFraction()), .02e4);
-    assertEq(lp.virtualReserveIn(), 100);
-    assertEq(lp.virtualReserveOut(), 100);
+    assertEq(lp.periodLength(), periodLength);
+    assertEq(lp.periodOffset(), periodOffset);
+    assertEq(lp.targetFirstSaleTime(), targetFirstSaleTime);
+    assertEq(lp.decayConstant().unwrap(), decayConstant.unwrap());
+    assertEq(lp.lastNonZeroAmountIn(), initialAmountIn);
+    assertEq(lp.lastNonZeroAmountOut(), initialAmountOut);
+    assertEq(lp.minimumAuctionAmount(), minimumAuctionAmount);
   }
 
-  function testCannotCreatePair() public {
-    vm.expectRevert(bytes("LiquidationPair/liquidity-fraction-greater-than-zero"));
-
-    factory.createPair(
-      ILiquidationSource(source),
-      tokenIn,
-      tokenOut,
-      UFixed32x4.wrap(.3e4),
-      UFixed32x4.wrap(0),
-      100,
-      100,
-      200
-    );
-  }
-
-  /* ============ totalPairs ============ */
-
-  function testTotalPairs() public {
-    assertEq(factory.totalPairs(), 0);
-    factory.createPair(
-      ILiquidationSource(source),
-      tokenIn,
-      tokenOut,
-      UFixed32x4.wrap(.3e4),
-      UFixed32x4.wrap(.02e4),
-      100,
-      100,
-      200
-    );
-    assertEq(factory.totalPairs(), 1);
-  }
-
-  /* ============ Mocks ============ */
-
-  function mockTarget(address _source, address _result) internal {
+  function mockLiquidatableBalanceOf(uint256 amount) public {
     vm.mockCall(
-      _source,
-      abi.encodeWithSelector(ILiquidationSource.targetOf.selector),
-      abi.encode(_result)
+      address(source),
+      abi.encodeWithSelector(ILiquidationSource.liquidatableBalanceOf.selector, tokenOut),
+      abi.encode(amount)
     );
   }
+
 }
