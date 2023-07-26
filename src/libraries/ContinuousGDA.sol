@@ -64,11 +64,11 @@ library ContinuousGDA {
     SD59x18 eValue = exponent.exp();
     // console2.log("eValue: ", unwrap(eValue));
     SD59x18 multiplier = _emissionRate.mul(_price);
-    // console2.log("numerator: ", unwrap(eValue));
+    // console2.log("multiplier: ", multiplier.unwrap());
     SD59x18 denominator = (_decayConstant.mul(_purchaseAmount).div(_emissionRate)).exp().sub(convert(1));
     // console2.log("denominator: ", unwrap(denominator));
     SD59x18 result = eValue.div(denominator);
-    // console2.log("result: ", unwrap(result.mul(multiplier)));
+    // console2.log("result: ", result.unwrap());
     return result.mul(multiplier);
   }
 }
