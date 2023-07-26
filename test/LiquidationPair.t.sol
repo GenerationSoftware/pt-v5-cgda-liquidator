@@ -12,6 +12,8 @@ import {
   AmountOutZero,
   TargetFirstSaleTimeLtPeriodLength,
   SwapExceedsAvailable,
+  DecayConstantTooLarge,
+  PurchasePriceIsZero,
   SwapExceedsMax
 } from "../src/LiquidationPair.sol";
 
@@ -25,13 +27,13 @@ contract LiquidationPairTest is Test {
   address public tokenIn;
   address public tokenOut;
   SD59x18 initialTokenOutPrice;
-  SD59x18 decayConstant;
+  SD59x18 decayConstant = wrap(0.001e18);
   uint periodLength = 1 days;
   uint periodOffset = 1 days;
-  uint32 targetFirstSaleTime = 1 hours;
+  uint32 targetFirstSaleTime = 12 hours;
   uint112 initialAmountIn = 1e18;
   uint112 initialAmountOut = 1e18;
-  uint256 minimumAuctionAmount = 1e18;
+  uint256 minimumAuctionAmount = 0;
 
   LiquidationPair pair;
 
@@ -51,10 +53,24 @@ contract LiquidationPairTest is Test {
     tokenOut = makeAddr("tokenOut");
     source = ILiquidationSource(makeAddr("source"));
     vm.etch(address(source), "liquidationSource");
-    decayConstant = wrap(0.001e18);
+    decayConstant;
 
     // Mock any yield that has accrued prior to the first auction.
     mockLiquidatableBalanceOf(1e18);
+    pair = newPair();
+  }
+
+  function testComputeMaxPrice() public {
+    assertApproxEqAbs(pair.computeMaxPrice().unwrap(), 499750083312543793131575981342062, 3e17);
+  }
+
+  // function testComputeMinPrice() public {
+  //   assertEq(pair.computeMinPrice().unwrap(), 0);
+  // }
+
+  function testConstructor_maxDecayConstant() public {
+    decayConstant = wrap(0.01e18);
+    vm.expectRevert(abi.encodeWithSelector(DecayConstantTooLarge.selector, wrap(1540327067910989), wrap(10000000000000000)));
     pair = newPair();
   }
 
@@ -188,7 +204,16 @@ contract LiquidationPairTest is Test {
     // halfway through the auction time, but we're trying to liquidate everything
     uint256 amountIn = pair.computeExactAmountIn(available);
     // price should match the exchange rate (less one from rounding)
-    assertEq(amountIn, available - 1);
+    assertApproxEqAbs(amountIn, available, 6e13);
+  }
+
+  function testComputeExactAmountIn_zero() public {
+    mockLiquidatableBalanceOf(1000e18);
+    decayConstant = wrap(0.001e18);
+    pair = newPair();
+    vm.warp(periodOffset*2 + periodLength-1);
+    vm.expectRevert(abi.encodeWithSelector(PurchasePriceIsZero.selector, 1e18));
+    pair.computeExactAmountIn(1e18);
   }
 
   function testComputeExactAmountIn_HappyPath() public {
@@ -198,11 +223,19 @@ contract LiquidationPairTest is Test {
     vm.warp(periodOffset + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0);
-    assertEq(
+    assertApproxEqAbs(
       pair.computeExactAmountIn(amountOut),
-      amountOut - 1,
+      amountOut,
+      6e13,
       "equal at target sale time (with rounding error of -1)"
     );
+  }
+
+  function testComputeExactAmountIn_at_end() public {
+    mockLiquidatableBalanceOf(1e27);
+    vm.warp(periodOffset + periodLength - 1);
+    uint amountOut = pair.maxAmountOut();
+    assertApproxEqAbs(pair.computeExactAmountIn(amountOut), 499999999999999961, 50);
   }
 
   function testComputeExactAmountIn_exceedsAvailable() public {
@@ -231,7 +264,7 @@ contract LiquidationPairTest is Test {
     vm.warp(periodOffset * 3 + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0);
-    assertEq(pair.computeExactAmountIn(amountOut), amountOut, "equal at target sale time");
+    assertApproxEqAbs(pair.computeExactAmountIn(amountOut), amountOut, 3e14, "equal at target sale time");
   }
 
   /**
@@ -239,29 +272,36 @@ contract LiquidationPairTest is Test {
    */
   function testComputeExactAmountIn_priceChangeThenGap() public {
     mockLiquidatableBalanceOf(2e18);
-    vm.warp(periodOffset + targetFirstSaleTime*2); // first sale is later than normal. approximately 1:2 instead of 1:1.
+    // we're some way past the first sale time
+    uint elapsed = targetFirstSaleTime + (periodLength - targetFirstSaleTime) / 2;
+    // console2.log("elapsed: ", elapsed);
+    vm.warp(periodOffset + elapsed); // first sale is later than normal. approximately 1:2 instead of 1:1.
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0, "amount out is non-zero");
     uint amountIn = swapAmountOut(amountOut); // incur the price change, because first sale is so delayed
 
+    // console2.log("amountOut", amountOut);
+    // console2.log("amountIn", amountIn);
+
+    SD59x18 exchangeRate = convert(int(amountOut)).div(convert(int(amountIn)));
+
     // go to next period, and nothing should be available
     vm.warp(periodOffset * 2);
+    // console2.log("next period");
     mockLiquidatableBalanceOf(0);
     assertEq(pair.maxAmountOut(), 0, "no yield available");
 
     // go to later period, and the price should adjust
+    // console2.log("mock two dollars");
     mockLiquidatableBalanceOf(2e18);
     vm.warp(periodOffset * 4 + targetFirstSaleTime);
+    // console2.log("computin max");
     uint laterAmountOut = pair.maxAmountOut();
-    assertEq(amountOut, laterAmountOut, "same amount of yield is available");
-    assertEq(pair.computeExactAmountIn(laterAmountOut), amountIn, "price has adjusted so that target time is the same");
-  }
+    uint laterAmountIn = pair.computeExactAmountIn(laterAmountOut);
 
-  function testComputeExactAmountIn_overflow() public {
-    mockLiquidatableBalanceOf(2e18);
-    vm.warp(type(uint256).max);
-    uint amountOut = pair.maxAmountOut();
-    assertEq(pair.computeExactAmountIn(amountOut), type(uint256).max, "overflow caught and max returned");
+    SD59x18 laterExchangeRate = convert(int(laterAmountOut)).div(convert(int(laterAmountIn)));
+
+    assertApproxEqAbs(exchangeRate.unwrap(), laterExchangeRate.unwrap(), 4e14, "exchange rate has been updated");
   }
 
   /* ============ swapExactAmountOut ============ */
@@ -291,9 +331,10 @@ contract LiquidationPairTest is Test {
 
     vm.warp(periodOffset + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
+    uint amountIn = pair.computeExactAmountIn(amountOut);
 
     mockLiquidatableBalanceOf(amountAvailable);
-    mockLiquidate(address(source), alice, tokenIn, amountOut - 1, tokenOut, amountOut, true);
+    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, true);
 
     assertEq(pair.amountInForPeriod(), 0, "amount in for period is zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out for period is zero");
@@ -301,11 +342,11 @@ contract LiquidationPairTest is Test {
 
     assertEq(
       pair.swapExactAmountOut(alice, amountOut, amountOut),
-      amountOut - 1,
+      amountIn,
       "equal at target sale time (with rounding error of -1)"
     );
 
-    assertEq(pair.amountInForPeriod(), amountOut - 1, "amount in was increased");
+    assertEq(pair.amountInForPeriod(), amountIn, "amount in was increased");
     assertEq(pair.amountOutForPeriod(), amountOut, "amount out was increased");
     assertEq(pair.lastAuctionTime(), periodOffset + targetFirstSaleTime - 1, "last auction increased to target time (less loss of precision)");
 
@@ -320,9 +361,10 @@ contract LiquidationPairTest is Test {
     uint256 amountAvailable = 1e18;
     vm.warp(periodOffset + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
+    uint amountIn = pair.computeExactAmountIn(amountOut);
     mockLiquidatableBalanceOf(amountAvailable);
     uint maxAmountIn = amountOut/2; // assume it's almost 1:1 exchange rate
-    vm.expectRevert(abi.encodeWithSelector(SwapExceedsMax.selector, maxAmountIn, amountOut - 1));
+    vm.expectRevert(abi.encodeWithSelector(SwapExceedsMax.selector, maxAmountIn, amountIn));
     pair.swapExactAmountOut(alice, amountOut, maxAmountIn);
   }
 

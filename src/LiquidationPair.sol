@@ -6,7 +6,7 @@ import "forge-std/console2.sol";
 import { RingBufferLib } from "ring-buffer-lib/RingBufferLib.sol";
 import { ILiquidationSource } from "v5-liquidator-interfaces/ILiquidationSource.sol";
 import { ILiquidationPair } from "v5-liquidator-interfaces/ILiquidationPair.sol";
-import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
+import { SD59x18, uEXP_MAX_INPUT, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
 
 import { ContinuousGDA } from "./libraries/ContinuousGDA.sol";
 
@@ -15,6 +15,8 @@ error AmountOutZero();
 error TargetFirstSaleTimeLtPeriodLength(uint passedTargetSaleTime, uint periodLength);
 error SwapExceedsAvailable(uint256 amountOut, uint256 available);
 error SwapExceedsMax(uint256 amountInMax, uint256 amountIn);
+error DecayConstantTooLarge(SD59x18 maxDecayConstant, SD59x18 decayConstant);
+error PurchasePriceIsZero(uint256 amountOut);
 
 contract LiquidationPair is ILiquidationPair {
   /* ============ Variables ============ */
@@ -71,6 +73,11 @@ contract LiquidationPair is ILiquidationPair {
     periodOffset = _periodOffset;
     targetFirstSaleTime = _targetFirstSaleTime;
 
+    SD59x18 period59 = convert(int256(uint256(_periodLength)));
+    if (_decayConstant.mul(period59).unwrap() > uEXP_MAX_INPUT) {
+      revert DecayConstantTooLarge(wrap(uEXP_MAX_INPUT).div(period59), _decayConstant);
+    }
+
     // console2.log("GOT here?");
 
     // convert to event
@@ -124,9 +131,6 @@ contract LiquidationPair is ILiquidationPair {
   /// @inheritdoc ILiquidationPair
   function computeExactAmountIn(uint256 _amountOut) external returns (uint256) {
     _checkUpdateAuction();
-    if (_amountOut == 0) {
-      return 0;
-    }
     return _computeExactAmountIn(_amountOut);
   }
 
@@ -149,6 +153,11 @@ contract LiquidationPair is ILiquidationPair {
   function lastAuctionTime() external returns (uint48) {
     _checkUpdateAuction();
     return _lastAuctionTime;
+  }
+
+  function computeElapsedFromMaxAmount(uint256 _amount) external returns (uint256) {
+    _checkUpdateAuction();
+    return uint256(convert(convert(int256(_amount)).div(_emissionRate)));
   }
 
   function emissionRate() external returns (SD59x18) {
@@ -189,21 +198,31 @@ contract LiquidationPair is ILiquidationPair {
     return swapAmountIn;
   }
 
-  function computePurchasePrice(
-    uint256 _amountOut,
-    SD59x18 __initialPrice,
-    SD59x18 __emissionRate,
-    SD59x18 _elapsed
-  ) public view returns (uint256) {
-    return
-      ContinuousGDA.purchasePrice(
-        _amountOut,
-        __emissionRate,
-        __initialPrice,
-        decayConstant,
-        _elapsed
-      );
+  function computeMaxPrice() external returns (SD59x18) {
+    _checkUpdateAuction();
+    uint amount = uint(convert(convert(1).mul(_emissionRate).ceil()));
+    return ContinuousGDA.purchasePrice(
+      amount,
+      _emissionRate,
+      _initialPrice,
+      decayConstant,
+      convert(1)
+    );
   }
+
+  // function computeMinPrice() external returns (SD59x18) {
+  //   _checkUpdateAuction();
+  //   // amount for 1 second
+  //   uint amount = uint(convert(convert(1).mul(_emissionRate).ceil()));
+  //   // console2.log("amount", amount);
+  //   return ContinuousGDA.purchasePrice(
+  //     amount,
+  //     _emissionRate,
+  //     _initialPrice,
+  //     decayConstant,
+  //     convert(int256(periodLength-20 hours))
+  //   );
+  // }
 
   function getElapsedTime() external returns (uint256) {
     _checkUpdateAuction();
@@ -233,8 +252,12 @@ contract LiquidationPair is ILiquidationPair {
   /* ============ Internal Functions ============ */
 
   function _maxAmountOut() internal view returns (uint256) {
+    // console2.log("_maxAmountOut _emissionRate", _emissionRate.unwrap());
+    // console2.log("_maxAmountOut _getElapsedTime", _getElapsedTime().unwrap());
     uint emissions = uint(convert(_emissionRate.mul(_getElapsedTime())));
+    // console2.log("max amount ooouuuutt 2", emissions);
     uint liquidatable = source.liquidatableBalanceOf(tokenOut);
+    // console2.log("max amount ooouuuutt 3");
     // console2.log("_maxAmountOut emissions liquidatable", emissions, liquidatable);
     return emissions > liquidatable ? liquidatable : emissions;
   }
@@ -259,28 +282,28 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   function _computeExactAmountIn(uint256 _amountOut) internal returns (uint256) {
+    if (_amountOut == 0) {
+      return 0;
+    }
     uint256 maxOut = _maxAmountOut();
     if (_amountOut > maxOut) {
       revert SwapExceedsAvailable(_amountOut, maxOut);
     }
     SD59x18 elapsed = _getElapsedTime();
-    uint purchasePrice;
-
-    (bool success, bytes memory returnData) = address(this).delegatecall(
-      abi.encodeWithSelector(
-        this.computePurchasePrice.selector,
+    uint purchasePrice = uint256(convert(ContinuousGDA.purchasePrice(
         _amountOut,
-        _initialPrice,
         _emissionRate,
+        _initialPrice,
+        decayConstant,
         elapsed
-      )
-    );
+      ).ceil()));
 
-    if (success) {
-      purchasePrice = abi.decode(returnData, (uint256));
-    } else {
-      purchasePrice = type(uint256).max;
+    // console2.log("_computeExactAmountIn amountOut: ", _amountOut);
+    // console2.log("_computeExactAmountIn purchasePrice: ", purchasePrice);
+    if (purchasePrice == 0) {
+      revert PurchasePriceIsZero(_amountOut);
     }
+
     return purchasePrice;
   }
 
@@ -301,9 +324,13 @@ contract LiquidationPair is ILiquidationPair {
     _amountOutForPeriod = 0;
     _lastAuctionTime = uint48(periodOffset + periodLength * __period);
     _period = uint16(__period);
+    // console2.log("_updateAuction _computeEmissionRate...");
     SD59x18 emissionRate_ = _computeEmissionRate();
     _emissionRate = emissionRate_;
     if (_emissionRate.unwrap() != 0) {
+      // console2.log("_updateAuction _computeK...");
+      // console2.log("_lastNonZeroAmountIn", _lastNonZeroAmountIn);
+      // console2.log("_lastNonZeroAmountOut", _lastNonZeroAmountOut);
       _initialPrice = _computeK(
         emissionRate_,
         _lastNonZeroAmountIn,

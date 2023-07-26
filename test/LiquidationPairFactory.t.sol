@@ -18,7 +18,7 @@ contract LiquidationPairFactoryTest is Test {
   uint32 periodLength = 1 days;
   uint32 periodOffset = 7 days;
   uint32 targetFirstSaleTime = 1 hours;
-  SD59x18 decayConstant = wrap(0.007e18);
+  SD59x18 decayConstant = wrap(0.001e18);
   uint112 initialAmountIn = 1e18;
   uint112 initialAmountOut = 2e18;
   uint256 minimumAuctionAmount = 1e18;

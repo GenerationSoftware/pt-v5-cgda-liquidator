@@ -24,7 +24,7 @@ contract ContinuousGDATest is Test {
     SD59x18 decayConstant = wrap(0.05e18);
     SD59x18 elapsedTime = convert(1);
 
-    uint256 amountIn = wrapper.purchasePrice(
+    SD59x18 amountIn = wrapper.purchasePrice(
       purchaseAmount,
       emissionRate,
       initialPrice,
@@ -32,7 +32,41 @@ contract ContinuousGDATest is Test {
       elapsedTime
     );
 
-    assertEq(amountIn, 112);
+    assertEq(convert(amountIn), 111);
+  }
+
+  function testPurchasePrice_minimum() public {
+    SD59x18 emissionRate = convert(1000e18).div(convert(1 days));
+    SD59x18 decayConstant = wrap(0.001e18);
+    SD59x18 elapsed = convert(12 hours);
+    SD59x18 purchaseAmount = elapsed.mul(emissionRate);
+    SD59x18 initialPrice = wrapper.computeK(emissionRate, decayConstant, elapsed, purchaseAmount, purchaseAmount);
+    uint amount = uint(convert(convert(1).mul(emissionRate).ceil()));
+    assertApproxEqAbs(
+      wrapper.purchasePrice(
+        amount,
+        emissionRate,
+        initialPrice,
+        decayConstant,
+        convert(1)
+      ).unwrap(),
+      499750083312503833111582646342332181,
+      1e21
+    );
+  }
+
+  function testPurchasePrice_overflow_regression() public {
+    assertApproxEqAbs(
+      wrapper.purchasePrice(
+        749999999999999999,
+        wrap(11574074074074074074074074074074),
+        wrap(5787037037037037042824074074073999999999999999998),
+        wrap(1000000000000000),
+        wrap(64800000000000000000000)
+      ).unwrap(),
+      499999999999999957159018154855990645,
+      8e18
+    );
   }
 
   function testComputeK() public {
@@ -44,7 +78,7 @@ contract ContinuousGDATest is Test {
     SD59x18 auctionStartingPrice = computeK(emissionRate, decayConstant, targetTime, exchangeRateAmountOutToAmountIn);
     SD59x18 amountOut = targetTime.mul(emissionRate);
     // console2.log("purchase price for", amountOut);
-    uint amountIn = ContinuousGDA.purchasePrice(
+    SD59x18 amountIn = ContinuousGDA.purchasePrice(
       uint(convert(amountOut)),
       emissionRate,
       auctionStartingPrice,
@@ -52,7 +86,21 @@ contract ContinuousGDATest is Test {
       targetTime
     );
 
-    assertEq(amountIn, uint(convert(amountOut.div(exchangeRateAmountOutToAmountIn))));
+    assertApproxEqAbs(amountIn.unwrap(), amountOut.div(exchangeRateAmountOutToAmountIn).unwrap(), 10);
+  }
+
+  function testComputeK_overflow_regressionTest() public {
+    // this call should not overflow.
+    assertEq(
+      ContinuousGDA.computeK(
+        wrap(23148148148148148148148148148148),
+        wrap(1000000000000000),
+        wrap(43200000000000000000000),
+        wrap(999999999999999999999999999999993600),
+        wrap(105637550019019116932242000471999323919679878277)
+      ).unwrap(),
+      2445313657847664746247211816921707517861151783024312071540664
+    );
   }
 
   function computeK(
@@ -73,51 +121,6 @@ contract ContinuousGDATest is Test {
       purchasedAmountOut,
       priceAmountIn
     );
-  }
-
-  function computeArbitrageStart(
-    SD59x18 emissionRate,
-    SD59x18 auctionStartingPrice,
-    SD59x18 decayConstant,
-    SD59x18 exchangeRateAmountOutToAmountIn,
-    uint maxElapsedTime,
-    uint timePeriod
-  ) public view returns (uint elapsedTime, uint bestAmountOut, uint bestProfit, uint bestAmountIn) {
-    for (elapsedTime = 0; elapsedTime < maxElapsedTime; elapsedTime += timePeriod) {
-      (bestAmountOut, bestProfit, bestAmountIn) = computeBestAmountOut(
-        emissionRate,
-        auctionStartingPrice,
-        decayConstant,
-        exchangeRateAmountOutToAmountIn,
-        int(elapsedTime)
-      );
-
-      if (bestProfit > 0) {
-        break;
-      }
-    }
-  }
-
-  function computeBestAmountOut(
-    SD59x18 emissionRate,
-    SD59x18 auctionStartingPrice,
-    SD59x18 decayConstant,
-    SD59x18 marketRateAmountOutToAmountIn,
-    int elapsedTime
-  ) public view returns (uint amountOut, uint profit, uint amountIn) {
-    SD59x18 availableAmountOut = convert(elapsedTime).mul(emissionRate);
-    uint costAmountIn = ContinuousGDA.purchasePrice(
-      uint(convert(availableAmountOut)),
-      emissionRate,
-      auctionStartingPrice,
-      decayConstant,
-      convert(elapsedTime)
-    );
-    uint revenueAmountIn = uint(convert(availableAmountOut.div(marketRateAmountOutToAmountIn)));
-
-    amountOut = uint(convert(availableAmountOut));
-    amountIn = costAmountIn;
-    profit = revenueAmountIn > costAmountIn ? revenueAmountIn - costAmountIn : 0;
   }
 
 }

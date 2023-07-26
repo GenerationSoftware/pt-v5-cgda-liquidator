@@ -13,8 +13,8 @@ contract ContinuousGDAWrapper {
     SD59x18 _initialPrice,
     SD59x18 _decayConstant,
     SD59x18 _timeSinceLastAuctionStart
-  ) external pure returns (uint256) {
-    uint256 result = ContinuousGDA.purchasePrice(
+  ) external pure returns (SD59x18) {
+    SD59x18 result = ContinuousGDA.purchasePrice(
       _numTokens,
       _emissionRate,
       _initialPrice,
