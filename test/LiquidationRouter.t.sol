@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
-import { ILiquidationSource } from "v5-liquidator-interfaces/ILiquidationSource.sol";
 
 import { LiquidationPairFactory } from "../src/LiquidationPairFactory.sol";
 import { LiquidationPair } from "../src/LiquidationPair.sol";

@@ -3,9 +3,8 @@ pragma solidity 0.8.19;
 
 import "forge-std/console2.sol";
 
-import { RingBufferLib } from "ring-buffer-lib/RingBufferLib.sol";
-import { ILiquidationSource } from "v5-liquidator-interfaces/ILiquidationSource.sol";
-import { ILiquidationPair } from "v5-liquidator-interfaces/ILiquidationPair.sol";
+import { ILiquidationSource } from "pt-v5-liquidator-interfaces/ILiquidationSource.sol";
+import { ILiquidationPair } from "pt-v5-liquidator-interfaces/ILiquidationPair.sol";
 import { SD59x18, uEXP_MAX_INPUT, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
 
 import { ContinuousGDA } from "./libraries/ContinuousGDA.sol";
@@ -112,7 +111,7 @@ contract LiquidationPair is ILiquidationPair {
   /* ============ External Read Methods ============ */
 
   /// @inheritdoc ILiquidationPair
-  function target() external view returns (address) {
+  function target() external returns (address) {
     return source.targetOf(tokenIn);
   }
 
@@ -251,7 +250,7 @@ contract LiquidationPair is ILiquidationPair {
 
   /* ============ Internal Functions ============ */
 
-  function _maxAmountOut() internal view returns (uint256) {
+  function _maxAmountOut() internal returns (uint256) {
     // console2.log("_maxAmountOut _emissionRate", _emissionRate.unwrap());
     // console2.log("_maxAmountOut _getElapsedTime", _getElapsedTime().unwrap());
     uint emissions = uint(convert(_emissionRate.mul(_getElapsedTime())));
@@ -266,7 +265,7 @@ contract LiquidationPair is ILiquidationPair {
     source.liquidate(_account, tokenIn, _amountIn, tokenOut, _amountOut);
   }
 
-  function _computeEmissionRate() internal view returns (SD59x18) {
+  function _computeEmissionRate() internal returns (SD59x18) {
     uint256 amount = source.liquidatableBalanceOf(tokenOut);
     // console2.log("_computeEmissionRate amount", amount);
     if (amount < minimumAuctionAmount) {

@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import "forge-std/console2.sol";
 import "forge-std/Test.sol";
 import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
-import { ILiquidationSource } from "v5-liquidator-interfaces/ILiquidationSource.sol";
+import { ILiquidationSource } from "pt-v5-liquidator-interfaces/ILiquidationSource.sol";
 
 import {
   LiquidationPair,
