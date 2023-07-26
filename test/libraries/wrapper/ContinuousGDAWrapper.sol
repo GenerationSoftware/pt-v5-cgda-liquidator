@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
-import { ContinuousGDA, SD59x18 } from "src/libraries/ContinuousGDA.sol";
+import { ContinuousGDA, SD59x18 } from "../../../src/libraries/ContinuousGDA.sol";
 
 // NOTE: taken from https://github.com/FrankieIsLost/gradual-dutch-auction/blob/master/src/ContinuousGDA.sol
 contract ContinuousGDAWrapper {

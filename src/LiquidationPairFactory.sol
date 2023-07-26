@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity 0.8.17;
+pragma solidity 0.8.19;
 
 import "./LiquidationPair.sol";
 
 contract LiquidationPairFactory {
   /* ============ Events ============ */
   event PairCreated(
+    LiquidationPair indexed pair,
     ILiquidationSource source,
     address tokenIn,
     address tokenOut,
@@ -15,7 +16,8 @@ contract LiquidationPairFactory {
     uint32 targetFirstSaleTime,
     SD59x18 decayConstant,
     uint112 initialAmountIn,
-    uint112 initialAmountOut
+    uint112 initialAmountOut,
+    uint256 minimumAuctionAmount
   );
 
   /* ============ Variables ============ */
@@ -39,7 +41,8 @@ contract LiquidationPairFactory {
     uint32 _targetFirstSaleTime,
     SD59x18 _decayConstant,
     uint112 _initialAmountIn,
-    uint112 _initialAmountOut
+    uint112 _initialAmountOut,
+    uint256 _minimumAuctionAmount
   ) external returns (LiquidationPair) {
     LiquidationPair _liquidationPair = new LiquidationPair(
       _source,
@@ -50,13 +53,15 @@ contract LiquidationPairFactory {
       _targetFirstSaleTime,
       _decayConstant,
       _initialAmountIn,
-      _initialAmountOut
+      _initialAmountOut,
+      _minimumAuctionAmount
     );
 
     allPairs.push(_liquidationPair);
     deployedPairs[_liquidationPair] = true;
 
     emit PairCreated(
+      _liquidationPair,
       _source,
       _tokenIn,
       _tokenOut,
@@ -65,7 +70,8 @@ contract LiquidationPairFactory {
       _targetFirstSaleTime,
       _decayConstant,
       _initialAmountIn,
-      _initialAmountOut
+      _initialAmountOut,
+      _minimumAuctionAmount
     );
 
     return _liquidationPair;

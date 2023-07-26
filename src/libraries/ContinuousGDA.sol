@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.17;
-
-import "forge-std/console2.sol";
+pragma solidity 0.8.19;
 
 import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
 
