@@ -8,9 +8,6 @@
 [submodule "lib/prb-math"]
 	path = lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
-[submodule "lib/ring-buffer-lib"]
-	path = lib/ring-buffer-lib
-	url = https://github.com/pooltogether/ring-buffer-lib
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
