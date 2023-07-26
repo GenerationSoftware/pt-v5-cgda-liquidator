@@ -3,10 +3,10 @@ pragma solidity 0.8.17;
 
 import "forge-std/Test.sol";
 import "forge-std/console2.sol";
-
-import { ContinuousGDA } from "src/libraries/ContinuousGDA.sol";
-import { ContinuousGDAWrapper } from "./wrapper/ContinuousGDAWrapper.sol";
 import { SD59x18, convert, wrap, unwrap } from "prb-math/SD59x18.sol";
+
+import { ContinuousGDA } from "../../src/libraries/ContinuousGDA.sol";
+import { ContinuousGDAWrapper } from "./wrapper/ContinuousGDAWrapper.sol";
 
 contract ContinuousGDATest is Test {
 
@@ -15,7 +15,7 @@ contract ContinuousGDATest is Test {
   function setUp() public {
     wrapper = new ContinuousGDAWrapper();
   }
-/*
+
   function testParadigmDocPurchasePrice() public {
     // 1 per 10 seconds
     uint256 purchaseAmount = 1e18;
@@ -118,7 +118,7 @@ contract ContinuousGDATest is Test {
       uint(convert(auctionStartingPrice))
     );
   }
-*/
+
   function testComputeK() public {
     uint availableAmount = 100; // 1000 USDC
     SD59x18 exchangeRateAmountOutToAmountIn = wrap(10e18);
