@@ -8,18 +8,35 @@ contract ContinuousGDAWrapper {
 
   ///@notice calculate price to purchased _numTokens using exponential continuous GDA formula
   function purchasePrice(
-    uint256 _numTokens,
+    SD59x18 _amount,
     SD59x18 _emissionRate,
     SD59x18 _initialPrice,
     SD59x18 _decayConstant,
     SD59x18 _timeSinceLastAuctionStart
   ) external pure returns (SD59x18) {
     SD59x18 result = ContinuousGDA.purchasePrice(
-      _numTokens,
+      _amount,
       _emissionRate,
       _initialPrice,
       _decayConstant,
       _timeSinceLastAuctionStart);
+    return result;
+  }
+
+  function purchaseAmount(
+    SD59x18 _price,
+    SD59x18 _emissionRate,
+    SD59x18 _k,
+    SD59x18 _decayConstant,
+    SD59x18 _timeSinceLastAuctionStart
+  ) external pure returns (SD59x18) {
+    SD59x18 result = ContinuousGDA.purchaseAmount(
+      _price,
+      _emissionRate,
+      _k,
+      _decayConstant,
+      _timeSinceLastAuctionStart
+    );
     return result;
   }
 

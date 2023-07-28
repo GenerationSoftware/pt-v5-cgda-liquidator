@@ -121,10 +121,9 @@ contract LiquidationPair is ILiquidationPair {
     return _maxAmountOut();
   }
 
-  /// @inheritdoc ILiquidationPair
-  function maxAmountIn() external view returns (uint256) {
-    // console2.log("TODO: maxAmountIn");
-    return 0;
+  function maxAmountIn() external returns (uint256) {
+    _checkUpdateAuction();
+    return _computeExactAmountIn(_maxAmountOut());
   }
 
   /// @inheritdoc ILiquidationPair
@@ -134,9 +133,15 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @inheritdoc ILiquidationPair
-  function computeExactAmountOut(uint256 __amountIn) external returns (uint256) {
-    // console2.log("TODO: computeExactAmountOut");
-    return 0;
+  function estimateAmountOut(uint256 __amountIn) external returns (uint256) {
+    _checkUpdateAuction();
+    return uint(convert(ContinuousGDA.purchaseAmount(
+      convert(int(__amountIn)),
+      _emissionRate,
+      _initialPrice,
+      decayConstant,
+      _getElapsedTime()
+    )));
   }
 
   function amountInForPeriod() external returns (uint96) {
@@ -154,11 +159,6 @@ contract LiquidationPair is ILiquidationPair {
     return _lastAuctionTime;
   }
 
-  function computeElapsedFromMaxAmount(uint256 _amount) external returns (uint256) {
-    _checkUpdateAuction();
-    return uint256(convert(convert(int256(_amount)).div(_emissionRate)));
-  }
-
   function emissionRate() external returns (SD59x18) {
     _checkUpdateAuction();
     return _emissionRate;
@@ -167,16 +167,6 @@ contract LiquidationPair is ILiquidationPair {
   function initialPrice() external returns (SD59x18) {
     _checkUpdateAuction();
     return _initialPrice;
-  }
-
-  /// @inheritdoc ILiquidationPair
-  function swapExactAmountIn(
-    address __receiver,
-    uint256 __amountIn,
-    uint256 __amountOutMin
-  ) external returns (uint256) {
-    // console2.log("TODO: swapExactAmountIn");
-    return 0;
   }
 
   /// @inheritdoc ILiquidationPair
@@ -195,18 +185,6 @@ contract LiquidationPair is ILiquidationPair {
     _lastAuctionTime += uint48(uint256(convert(convert(int256(_amountOut)).div(_emissionRate))));
     _swap(_account, _amountOut, swapAmountIn);
     return swapAmountIn;
-  }
-
-  function computeMaxPrice() external returns (SD59x18) {
-    _checkUpdateAuction();
-    uint amount = uint(convert(convert(1).mul(_emissionRate).ceil()));
-    return ContinuousGDA.purchasePrice(
-      amount,
-      _emissionRate,
-      _initialPrice,
-      decayConstant,
-      convert(1)
-    );
   }
 
   // function computeMinPrice() external returns (SD59x18) {
@@ -277,6 +255,9 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   function _getElapsedTime() internal view returns (SD59x18) {
+    if (block.timestamp < _lastAuctionTime) {
+      return wrap(0);
+    }
     return convert(int256(block.timestamp)).sub(convert(int256(uint256(_lastAuctionTime))));
   }
 
@@ -290,15 +271,13 @@ contract LiquidationPair is ILiquidationPair {
     }
     SD59x18 elapsed = _getElapsedTime();
     uint purchasePrice = uint256(convert(ContinuousGDA.purchasePrice(
-        _amountOut,
+        convert(int(_amountOut)),
         _emissionRate,
         _initialPrice,
         decayConstant,
         elapsed
       ).ceil()));
 
-    // console2.log("_computeExactAmountIn amountOut: ", _amountOut);
-    // console2.log("_computeExactAmountIn purchasePrice: ", purchasePrice);
     if (purchasePrice == 0) {
       revert PurchasePriceIsZero(_amountOut);
     }
