@@ -4,8 +4,25 @@ pragma solidity 0.8.19;
 
 import "./LiquidationPair.sol";
 
+/// @title LiquidationPairFactory
+/// @author G9 Software Inc.
+/// @notice Factory contract for deploying LiquidationPair contracts.
 contract LiquidationPairFactory {
+
   /* ============ Events ============ */
+
+  /// @notice Emitted when a new LiquidationPair is created
+  /// @param pair The address of the new pair
+  /// @param source The liquidation source that the pair is using
+  /// @param tokenIn The input token for the pair
+  /// @param tokenOut The output token for the pair
+  /// @param periodLength The duration of auctions
+  /// @param periodOffset The start time offset of auctions
+  /// @param targetFirstSaleTime The target time for the first auction
+  /// @param decayConstant The decay constant that the pair is using
+  /// @param initialAmountIn The initial amount of input tokens (used to compute initial exchange rate)
+  /// @param initialAmountOut The initial amount of output tokens (used to compute initial exchange rate)
+  /// @param minimumAuctionAmount The minimum auction size in output tokens
   event PairCreated(
     LiquidationPair indexed pair,
     ILiquidationSource source,
@@ -21,6 +38,8 @@ contract LiquidationPairFactory {
   );
 
   /* ============ Variables ============ */
+
+  /// @notice Tracks an array of all pairs created by this factory
   LiquidationPair[] public allPairs;
 
   /* ============ Mappings ============ */
@@ -31,7 +50,18 @@ contract LiquidationPairFactory {
    */
   mapping(LiquidationPair => bool) public deployedPairs;
 
-  /* ============ External Functions ============ */
+  /// @notice Creates a new LiquidationPair and registers it within the factory
+  /// @param _source The liquidation source that the pair will use
+  /// @param _tokenIn The input token for the pair
+  /// @param _tokenOut The output token for the pair
+  /// @param _periodLength The duration of auctions
+  /// @param _periodOffset The start time offset of auctions
+  /// @param _targetFirstSaleTime The target time for the first auction
+  /// @param _decayConstant The decay constant that the pair will use. This determines how rapidly the price changes.
+  /// @param _initialAmountIn The initial amount of input tokens (used to compute initial exchange rate)
+  /// @param _initialAmountOut The initial amount of output tokens (used to compute initial exchange rate)
+  /// @param _minimumAuctionAmount The minimum auction size in output tokens
+  /// @return The address of the new pair
   function createPair(
     ILiquidationSource _source,
     address _tokenIn,
