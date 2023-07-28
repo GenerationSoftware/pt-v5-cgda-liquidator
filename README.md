@@ -16,18 +16,27 @@ PoolTogether V5 uses the CGDA liquidator to sell yield for POOL tokens and contr
 - LiquidationPairFactory: creates new LiquidationPairs and registers them.
 - LiquidationRouter: provides a convenient interface to interact with LiquidationPairs
 
+## LiquidationPair
+
+The LiquidationPair sells one token for another using a periodic continuous gradual dutch auction.  The pair does not hold liquidity, but rather prices liquidity held by a ILiquidationSource.  The Liquidation Source makes liquidity available to the pair, which facilitates swaps.
+
+A continuous gradual dutch auction is an algorithm that:
+
+1. Prices the purchase of tokens against a bonding curve
+2. Decays the purchase price as time elapses
+3. Limits the number of tokens purchased according to an emissions rate.
+
+What you get, in a sense, is that a CGDA auction will drop the price until purchases match the rate of emissions.
+
+For more information read the origina Paradigm article on [Gradual Dutch Auctions](https://www.paradigm.xyz/2022/04/gda).
+
+The LiquidationPair is *periodic*, in the sense that it runs a sequence of CGDAs. At the start of each auction period, the LiquidationPair will adjust the target price and emissions rate so that the available liquidity can be sold as efficiently as possible.
+
 <strong>Have questions or want the latest news?</strong>
 <br/>Join the PoolTogether Discord or follow us on Twitter:
 
 [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://pooltogether.com/discord)
 [![Twitter](https://badgen.net/badge/icon/twitter?icon=twitter&label)](https://twitter.com/PoolTogether_)
-
-## Overview
-
-In PoolTogether V5 yield is sold by a Liquidator for prize tokens which are used to measure Vault contributions, distribute odds and are then given out as prizes!
-
-- Accrued yield is sold by the Liquidator and sent to the Prize Pool.
-- Yield is pulled from a ILiquidationSource.
 
 ## Development
 

@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
-import "forge-std/console2.sol";
-
 import { ILiquidationSource } from "pt-v5-liquidator-interfaces/ILiquidationSource.sol";
 import { ILiquidationPair } from "pt-v5-liquidator-interfaces/ILiquidationPair.sol";
 import { SD59x18, uEXP_MAX_INPUT, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
@@ -17,22 +15,36 @@ error SwapExceedsMax(uint256 amountInMax, uint256 amountIn);
 error DecayConstantTooLarge(SD59x18 maxDecayConstant, SD59x18 decayConstant);
 error PurchasePriceIsZero(uint256 amountOut);
 
+/***
+ * @title LiquidationPair
+ * @author G9 Software Inc.
+ * @notice Auctions one token for another in a periodic continuous gradual dutch auction. Auctions occur over a limit period so that the price can be adjusted.
+ * @dev This contract is designed to be used with the LiquidationRouter contract.
+ */
 contract LiquidationPair is ILiquidationPair {
+
   /* ============ Variables ============ */
 
+  /// @notice The liquidation source that the pair is using.  The source executes the actual token swap, while the pair handles the pricing.
   ILiquidationSource public immutable source;
+
+  /// @notice The token that is used to pay for auctions
   address public immutable tokenIn;
+
+  /// @notice The token that is being auctioned.
   address public immutable tokenOut;
 
+  /// @notice The rate at which the price decays
   SD59x18 public immutable decayConstant;
 
-  /// @notice Sets the minimum period length for auctions. When a period elapses a new auction begins.
+  /// @notice The duration of each auction.
   uint256 public immutable periodLength;
 
   /// @notice Sets the beginning timestamp for the first period.
   /// @dev Ensure that the periodOffset is in the past.
   uint256 public immutable periodOffset;
 
+  /// @notice The time within an auction at which the price of available tokens matches the previous non-zero exchange rate.
   uint32 public immutable targetFirstSaleTime;
 
   /// @notice Require a minimum number of tokens before an auction is triggered.
@@ -41,17 +53,43 @@ contract LiquidationPair is ILiquidationPair {
   /// If gas cost is 10 cents and we're seeking an efficiency of at least 90%, then the minimum auction amount should be $1 worth of tokens.
   uint256 public immutable minimumAuctionAmount;
 
+  /// @notice The last non-zero total tokens in for an auction. This is used to configure the target price for the next auction.
   uint112 _lastNonZeroAmountIn;
+
+  /// @notice The last non-zero total tokens out for an auction.  This is used to configure the target price for the next auction.
   uint112 _lastNonZeroAmountOut;
+
+  /// @notice The total tokens in for the current auction.
   uint96 _amountInForPeriod;
+
+  /// @notice The total tokens out for the current auction.
   uint96 _amountOutForPeriod;
+
+  /// @notice The current auction period. Note that this number can wrap.
   uint16 _period;
+
+  /// @notice The timestamp at which emissions have been consumed to for the current auction
   uint48 _lastAuctionTime;
+
+  /// @notice The rate of token emissions for the current auction
   SD59x18 _emissionRate;
+
+  /// @notice The initial price for the current auction
   SD59x18 _initialPrice;
 
   /* ============ Constructor ============ */
 
+  /// @notice Construct a new pair
+  /// @param _source The liquidation source to use for the pair
+  /// @param _tokenIn The token that is used to pay for auctions
+  /// @param _tokenOut The token that is being auctioned
+  /// @param _periodLength The duration of each auction.
+  /// @param _periodOffset Sets the beginning timestamp for the first period
+  /// @param _targetFirstSaleTime The time within an auction at which the price of available tokens matches the previous non-zero exchange rate
+  /// @param _decayConstant The rate at which the price decays
+  /// @param _initialAmountIn The initial amount of tokens in for the first auction (used for the initial exchange rate)
+  /// @param _initialAmountOut The initial amount of tokens out for the first auction (used for the initial exchange rate)
+  /// @param _minimumAuctionAmount Require a minimum number of tokens before an auction is triggered.
   constructor(
     ILiquidationSource _source,
     address _tokenIn,
@@ -77,35 +115,23 @@ contract LiquidationPair is ILiquidationPair {
       revert DecayConstantTooLarge(wrap(uEXP_MAX_INPUT).div(period59), _decayConstant);
     }
 
-    // console2.log("GOT here?");
-
-    // convert to event
     if (targetFirstSaleTime >= periodLength) {
       revert TargetFirstSaleTimeLtPeriodLength(targetFirstSaleTime, periodLength);
     }
-
-    // console2.log("GOT here? 2");
 
     if (_initialAmountIn == 0) {
       revert AmountInZero();
     }
 
-
-    // console2.log("GOT here?3 ");
-
     if (_initialAmountOut == 0) {
       revert AmountOutZero();
     }
-
-    // console2.log("GOT here? 4");
 
     _lastNonZeroAmountIn = _initialAmountIn;
     _lastNonZeroAmountOut = _initialAmountOut;
     minimumAuctionAmount = _minimumAuctionAmount;
 
     _updateAuction(0);
-
-    // console2.log("GOT here? 5");
   }
 
   /* ============ External Read Methods ============ */
@@ -121,6 +147,8 @@ contract LiquidationPair is ILiquidationPair {
     return _maxAmountOut();
   }
 
+  /// @notice Returns the maximum amount of tokens in
+  /// @return The max number of tokens in
   function maxAmountIn() external returns (uint256) {
     _checkUpdateAuction();
     return _computeExactAmountIn(_maxAmountOut());
@@ -144,26 +172,36 @@ contract LiquidationPair is ILiquidationPair {
     )));
   }
 
+  /// @notice Returns the total input tokens for the current auction.
+  /// @return Total tokens in
   function amountInForPeriod() external returns (uint96) {
     _checkUpdateAuction();
     return _amountInForPeriod;
   }
 
+  /// @notice Returns the total output tokens for the current auction.
+  /// @return Total tokens out
   function amountOutForPeriod() external returns (uint96) {
     _checkUpdateAuction();
     return _amountOutForPeriod;
   }
 
+  /// @notice Returns the timestamp to which emissions have been consumed.
+  /// @return The timestamp to which emissions have been consumed.
   function lastAuctionTime() external returns (uint48) {
     _checkUpdateAuction();
     return _lastAuctionTime;
   }
 
+  /// @notice Returns the emission rate in tokens per second for current auction
+  /// @return The emission rate
   function emissionRate() external returns (SD59x18) {
     _checkUpdateAuction();
     return _emissionRate;
   }
 
+  /// @notice Returns the initial price for the current auction
+  /// @return The initial price
   function initialPrice() external returns (SD59x18) {
     _checkUpdateAuction();
     return _initialPrice;
@@ -183,44 +221,39 @@ contract LiquidationPair is ILiquidationPair {
     _amountInForPeriod += uint96(swapAmountIn);
     _amountOutForPeriod += uint96(_amountOut);
     _lastAuctionTime += uint48(uint256(convert(convert(int256(_amountOut)).div(_emissionRate))));
-    _swap(_account, _amountOut, swapAmountIn);
+    source.liquidate(_account, tokenIn, swapAmountIn, tokenOut, _amountOut);
     return swapAmountIn;
   }
 
-  // function computeMinPrice() external returns (SD59x18) {
-  //   _checkUpdateAuction();
-  //   // amount for 1 second
-  //   uint amount = uint(convert(convert(1).mul(_emissionRate).ceil()));
-  //   // console2.log("amount", amount);
-  //   return ContinuousGDA.purchasePrice(
-  //     amount,
-  //     _emissionRate,
-  //     _initialPrice,
-  //     decayConstant,
-  //     convert(int256(periodLength-20 hours))
-  //   );
-  // }
-
+  /// @notice Computes the elapsed time within the auction
   function getElapsedTime() external returns (uint256) {
     _checkUpdateAuction();
     return uint256(convert(_getElapsedTime()));
   }
 
+  /// @notice Returns the current auction start time
+  /// @return The start timestamp
   function getPeriodStart() external returns (uint256) {
     _checkUpdateAuction();
-    return _getPeriodStart(_getPeriod());
+    return _getPeriodStart(_computePeriod());
   }
 
+  /// @notice Returns the current auction end time
+  /// @return The end timestamp
   function getPeriodEnd() external returns (uint256) {
     _checkUpdateAuction();
-    return _getPeriodEnd(_getPeriod());
+    return _getPeriodEnd(_computePeriod());
   }
 
+  /// @notice Returns the last non-zero auction total input tokens
+  /// @return Total input tokens
   function lastNonZeroAmountIn() external returns (uint112) {
     _checkUpdateAuction();
     return _lastNonZeroAmountIn;
   }
 
+  /// @notice Returns the last non-zero auction total output tokens
+  /// @return Total output tokens
   function lastNonZeroAmountOut() external returns (uint112) {
     _checkUpdateAuction();
     return _lastNonZeroAmountOut;
@@ -228,21 +261,16 @@ contract LiquidationPair is ILiquidationPair {
 
   /* ============ Internal Functions ============ */
 
+  /// @notice Computes the maximum amount of output tokens that can be purchased
+  /// @return Maximum amount of output tokens
   function _maxAmountOut() internal returns (uint256) {
-    // console2.log("_maxAmountOut _emissionRate", _emissionRate.unwrap());
-    // console2.log("_maxAmountOut _getElapsedTime", _getElapsedTime().unwrap());
     uint emissions = uint(convert(_emissionRate.mul(_getElapsedTime())));
-    // console2.log("max amount ooouuuutt 2", emissions);
     uint liquidatable = source.liquidatableBalanceOf(tokenOut);
-    // console2.log("max amount ooouuuutt 3");
-    // console2.log("_maxAmountOut emissions liquidatable", emissions, liquidatable);
     return emissions > liquidatable ? liquidatable : emissions;
   }
 
-  function _swap(address _account, uint256 _amountOut, uint256 _amountIn) internal {
-    source.liquidate(_account, tokenIn, _amountIn, tokenOut, _amountOut);
-  }
-
+  /// @notice Computes the current emission rate given the available source balance of the output token
+  /// @return The current emission rate
   function _computeEmissionRate() internal returns (SD59x18) {
     uint256 amount = source.liquidatableBalanceOf(tokenOut);
     // console2.log("_computeEmissionRate amount", amount);
@@ -254,6 +282,8 @@ contract LiquidationPair is ILiquidationPair {
     return convert(int256(amount)).div(convert(int32(int(periodLength))));
   }
 
+  /// @notice Computes the elapsed time within the current auction
+  /// @return The elapsed time
   function _getElapsedTime() internal view returns (SD59x18) {
     if (block.timestamp < _lastAuctionTime) {
       return wrap(0);
@@ -261,6 +291,9 @@ contract LiquidationPair is ILiquidationPair {
     return convert(int256(block.timestamp)).sub(convert(int256(uint256(_lastAuctionTime))));
   }
 
+  /// @notice Computes the exact amount of input tokens required to purchase the given amount of output tokens
+  /// @param _amountOut The number of output tokens desired
+  /// @return The number of input tokens needed
   function _computeExactAmountIn(uint256 _amountOut) internal returns (uint256) {
     if (_amountOut == 0) {
       return 0;
@@ -285,13 +318,16 @@ contract LiquidationPair is ILiquidationPair {
     return purchasePrice;
   }
 
+  /// @notice Checks to see if a new auction has started, and updates the state if so
   function _checkUpdateAuction() internal {
-    uint256 currentPeriod = _getPeriod();
+    uint256 currentPeriod = _computePeriod();
     if (currentPeriod != _period) {
       _updateAuction(currentPeriod);
     }
   }
 
+  /// @notice Updates the current auction to the given period
+  /// @param __period The period that the auction should be updated to
   function _updateAuction(uint256 __period) internal {
     if (_amountInForPeriod > 0 && _amountOutForPeriod > 0) {
       // if we sold something, then update the previous non-zero amount
@@ -302,57 +338,47 @@ contract LiquidationPair is ILiquidationPair {
     _amountOutForPeriod = 0;
     _lastAuctionTime = uint48(periodOffset + periodLength * __period);
     _period = uint16(__period);
-    // console2.log("_updateAuction _computeEmissionRate...");
     SD59x18 emissionRate_ = _computeEmissionRate();
     _emissionRate = emissionRate_;
     if (_emissionRate.unwrap() != 0) {
-      // console2.log("_updateAuction _computeK...");
-      // console2.log("_lastNonZeroAmountIn", _lastNonZeroAmountIn);
-      // console2.log("_lastNonZeroAmountOut", _lastNonZeroAmountOut);
-      _initialPrice = _computeK(
+      // compute k
+      SD59x18 timeSinceLastAuctionStart = convert(int(uint(targetFirstSaleTime)));
+      SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
+      SD59x18 exchangeRateAmountInToAmountOut = convert(int(uint(_lastNonZeroAmountIn))).div(convert(int(uint(_lastNonZeroAmountOut))));
+      SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
+      _initialPrice = ContinuousGDA.computeK(
         emissionRate_,
-        _lastNonZeroAmountIn,
-        _lastNonZeroAmountOut
+        decayConstant,
+        timeSinceLastAuctionStart,
+        purchaseAmount,
+        price
       );
     } else {
       _initialPrice = wrap(0);
     }
   }
 
+  /// @notice Computes the start time of the given auction period
+  /// @param __period The auction period, in terms of number of periods since periodOffset
+  /// @return The start timestamp of the given period
   function _getPeriodStart(uint256 __period) internal view returns (uint256) {
     return periodOffset + __period * periodLength;
   }
 
+  /// @notice Computes the end time of the given auction period
+  /// @param __period The auction period, in terms of number of periods since periodOffset
+  /// @return The end timestamp of the given period
   function _getPeriodEnd(uint256 __period) internal view returns (uint256) {
     return _getPeriodStart(__period) + periodLength;
   }
 
-  function _getPeriod() internal view returns (uint256) {
+  /// @notice Computes the current auction period
+  /// @return the current period
+  function _computePeriod() internal view returns (uint256) {
     uint256 _timestamp = block.timestamp;
     if (_timestamp < periodOffset) {
       return 0;
     }
     return (_timestamp - periodOffset) / periodLength;
-  }
-
-  function _computeK(
-    SD59x18 __emissionRate,
-    uint112 _amountIn,
-    uint112 _amountOut
-  ) internal view returns (SD59x18) {
-    SD59x18 timeSinceLastAuctionStart = convert(int(uint(targetFirstSaleTime)));
-    SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(__emissionRate);
-    SD59x18 exchangeRateAmountInToAmountOut = _amountOut > 0
-      ? convert(int(uint(_amountIn))).div(convert(int(uint(_amountOut))))
-      : wrap(0);
-    SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
-    SD59x18 result = ContinuousGDA.computeK(
-      __emissionRate,
-      decayConstant,
-      timeSinceLastAuctionStart,
-      purchaseAmount,
-      price
-    );
-    return result;
   }
 }
