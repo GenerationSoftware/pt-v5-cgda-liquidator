@@ -60,13 +60,15 @@ contract LiquidationPairTest is Test {
     pair = newPair();
   }
 
-  function testComputeMaxPrice() public {
-    assertApproxEqAbs(pair.computeMaxPrice().unwrap(), 499750083312543793131575981342062, 3e17);
+  function testMaxAmountIn_before() public {
+    vm.warp(0);
+    assertEq(pair.maxAmountIn(), 0);
   }
 
-  // function testComputeMinPrice() public {
-  //   assertEq(pair.computeMinPrice().unwrap(), 0);
-  // }
+  function testMaxAmountIn() public {
+    vm.warp(periodOffset + 1);
+    assertApproxEqAbs(pair.maxAmountIn(), 499750083312544, 44);
+  }
 
   function testConstructor_maxDecayConstant() public {
     decayConstant = wrap(0.01e18);
@@ -208,12 +210,9 @@ contract LiquidationPairTest is Test {
   }
 
   function testComputeExactAmountIn_zero() public {
-    mockLiquidatableBalanceOf(1000e18);
-    decayConstant = wrap(0.001e18);
-    pair = newPair();
-    vm.warp(periodOffset*2 + periodLength-1);
-    vm.expectRevert(abi.encodeWithSelector(PurchasePriceIsZero.selector, 1e18));
-    pair.computeExactAmountIn(1e18);
+    vm.warp(periodOffset + periodLength - 1);
+    vm.expectRevert(abi.encodeWithSelector(PurchasePriceIsZero.selector, 1000));
+    pair.computeExactAmountIn(1000);
   }
 
   function testComputeExactAmountIn_HappyPath() public {
@@ -304,6 +303,22 @@ contract LiquidationPairTest is Test {
     assertApproxEqAbs(exchangeRate.unwrap(), laterExchangeRate.unwrap(), 4e14, "exchange rate has been updated");
   }
 
+  function testEstimateAmountOut() public {
+    uint256 amountAvailable = 1e18;
+    mockLiquidatableBalanceOf(amountAvailable);
+
+    vm.warp(periodOffset + targetFirstSaleTime);
+    uint amountOut = pair.maxAmountOut();
+    uint amountIn = pair.computeExactAmountIn(amountOut);
+
+    assertApproxEqAbs(
+      pair.estimateAmountOut(amountIn),
+      amountOut,
+      1e18,
+      "equal at target sale time (with rounding error of -1)"
+    );
+  }
+
   /* ============ swapExactAmountOut ============ */
 
   function testEmissionRate_nonZero() public {
@@ -312,6 +327,14 @@ contract LiquidationPairTest is Test {
 
   function testEmissionRate_zero() public {
     mockLiquidatableBalanceOf(0);
+    vm.warp(periodOffset + periodLength);
+    assertEq(pair.emissionRate().unwrap(), 0);
+  }
+
+  function testEmissionRate_insufficient() public {
+    minimumAuctionAmount = 2e18;
+    pair = newPair();
+    mockLiquidatableBalanceOf(1e18);
     vm.warp(periodOffset + periodLength);
     assertEq(pair.emissionRate().unwrap(), 0);
   }
