@@ -2,9 +2,6 @@
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
 	branch = v1
-[submodule "lib/gradual-dutch-auction"]
-	path = lib/gradual-dutch-auction
-	url = https://github.com/FrankieIsLost/gradual-dutch-auction
 [submodule "lib/prb-math"]
 	path = lib/prb-math
 	url = https://github.com/PaulRBerg/prb-math
