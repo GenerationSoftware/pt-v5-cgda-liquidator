@@ -215,6 +215,9 @@ contract LiquidationPair is ILiquidationPair {
   ) external returns (uint256) {
     _checkUpdateAuction();
     uint swapAmountIn = _computeExactAmountIn(_amountOut);
+    if (swapAmountIn == 0) {
+      revert PurchasePriceIsZero(_amountOut);
+    }
     if (swapAmountIn > _amountInMax) {
       revert SwapExceedsMax(_amountInMax, swapAmountIn);
     }
@@ -310,10 +313,6 @@ contract LiquidationPair is ILiquidationPair {
         decayConstant,
         elapsed
       ).ceil()));
-
-    if (purchasePrice == 0) {
-      revert PurchasePriceIsZero(_amountOut);
-    }
 
     return purchasePrice;
   }

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
+import "forge-std/console2.sol";
+
 import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
 
 /// @title ContinuousGDA
@@ -30,16 +32,18 @@ library ContinuousGDA {
     if (_amount.unwrap() == 0) {
       return SD59x18.wrap(0);
     }
+    console2.log("here 1");
     SD59x18 topE = _decayConstant.mul(_amount).div(_emissionRate);
+    console2.log("here 2");
     topE = topE.exp().sub(ONE);
+    console2.log("here 3");
     SD59x18 bottomE = _decayConstant.mul(_timeSinceLastAuctionStart);
+    console2.log("here 4");
     bottomE = bottomE.exp();
+    console2.log("here 5");
     SD59x18 result;
-    if (_emissionRate.unwrap() > 1e18) {
-      result = _k.div(_emissionRate).mul(topE).div(bottomE);
-    } else {
-      result = _k.mul(topE.div(_emissionRate.mul(bottomE)));
-    }
+    result = _k.div(bottomE).mul(topE.div(_decayConstant));
+    console2.log("here 8");
     return result;
   }
 
