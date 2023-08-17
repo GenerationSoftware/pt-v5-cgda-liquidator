@@ -24,6 +24,38 @@ error PurchasePriceIsZero(uint256 amountOut);
  */
 contract LiquidationPair is ILiquidationPair {
 
+  /* ============ Events ============ */
+
+  /// @notice Emitted when a new auction is started
+  /// @param lastNonZeroAmountIn The total tokens in for the previous non-zero auction
+  /// @param lastNonZeroAmountOut The total tokens out for the previous non-zero auction
+  /// @param lastAuctionTime The timestamp at which the auction starts
+  /// @param period The current auction period
+  /// @param emissionRate The rate of token emissions for the current auction
+  /// @param initialPrice The initial price for the current auction
+  event StartedAuction(
+    uint112 lastNonZeroAmountIn,
+    uint112 lastNonZeroAmountOut,
+    uint48 lastAuctionTime,
+    uint16 period,
+    SD59x18 emissionRate,
+    SD59x18 initialPrice
+  );
+
+  /// @notice Emitted when a swap is made
+  /// @param sender The sender of the swap
+  /// @param receiver The receiver of the swap
+  /// @param amountOut The amount of tokens out
+  /// @param amountInMax The maximum amount of tokens in
+  /// @param amountIn The actual amount of tokens in
+  event SwappedExactAmountOut(
+    address sender,
+    address receiver,
+    uint amountOut,
+    uint amountInMax,
+    uint amountIn
+  );
+
   /* ============ Variables ============ */
 
   /// @notice The liquidation source that the pair is using.  The source executes the actual token swap, while the pair handles the pricing.
@@ -223,6 +255,9 @@ contract LiquidationPair is ILiquidationPair {
     _amountOutForPeriod += SafeCast.toUint96(_amountOut);
     _lastAuctionTime += SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
     source.liquidate(_account, tokenIn, swapAmountIn, tokenOut, _amountOut);
+
+    emit SwappedExactAmountOut(msg.sender, _account, _amountOut, _amountInMax, swapAmountIn);
+
     return swapAmountIn;
   }
 
@@ -357,6 +392,15 @@ contract LiquidationPair is ILiquidationPair {
     } else {
       _initialPrice = wrap(0);
     }
+
+    emit StartedAuction(
+      _lastNonZeroAmountIn,
+      _lastNonZeroAmountOut,
+      _lastAuctionTime,
+      _period,
+      _emissionRate,
+      _initialPrice
+    );
   }
 
   /// @notice Computes the start time of the given auction period

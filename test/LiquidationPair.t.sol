@@ -18,6 +18,7 @@ import {
 } from "../src/LiquidationPair.sol";
 
 contract LiquidationPairTest is Test {
+  
   /* ============ Variables ============ */
 
   address public alice;
@@ -39,7 +40,35 @@ contract LiquidationPairTest is Test {
 
   /* ============ Events ============ */
 
-  event Swapped(address indexed account, uint256 amountIn, uint256 amountOut);
+  /// @notice Emitted when a new auction is started
+  /// @param lastNonZeroAmountIn The total tokens in for the previous non-zero auction
+  /// @param lastNonZeroAmountOut The total tokens out for the previous non-zero auction
+  /// @param lastAuctionTime The timestamp at which the auction starts
+  /// @param period The current auction period
+  /// @param emissionRate The rate of token emissions for the current auction
+  /// @param initialPrice The initial price for the current auction
+  event StartedAuction(
+    uint112 lastNonZeroAmountIn,
+    uint112 lastNonZeroAmountOut,
+    uint48 lastAuctionTime,
+    uint16 period,
+    SD59x18 emissionRate,
+    SD59x18 initialPrice
+  );
+
+  /// @notice Emitted when a swap is made
+  /// @param sender The sender of the swap
+  /// @param receiver The receiver of the swap
+  /// @param amountOut The amount of tokens out
+  /// @param amountInMax The maximum amount of tokens in
+  /// @param amountIn The actual amount of tokens in
+  event SwappedExactAmountOut(
+    address sender,
+    address receiver,
+    uint amountOut,
+    uint amountInMax,
+    uint amountIn
+  );
 
   /* ============ Set up ============ */
 
@@ -110,6 +139,31 @@ contract LiquidationPairTest is Test {
 
   function testConstructor_zeroLiquidity() public {
     mockLiquidatableBalanceOf(0);
+    pair = new LiquidationPair(
+      source,
+      tokenIn,
+      tokenOut,
+      uint32(periodLength),
+      uint32(periodOffset),
+      targetFirstSaleTime,
+      decayConstant,
+      1e18,
+      1e18,
+      minimumAuctionAmount
+    );
+  }
+
+  function testConstructor_StartedAuction() public {
+    mockLiquidatableBalanceOf(1e18 * 86400);
+    vm.expectEmit(true, true, true, true);
+    emit StartedAuction(
+      initialAmountIn,
+      initialAmountOut,
+      uint48(periodOffset),
+      0,
+      wrap(1000000000000000000e18),
+      wrap(43200000000000000000000000000000000000000e18)
+    );
     pair = new LiquidationPair(
       source,
       tokenIn,
@@ -249,6 +303,15 @@ contract LiquidationPairTest is Test {
   function testComputeExactAmountIn_jumpToFutureWithNoLiquidity() public {
     mockLiquidatableBalanceOf(0);
     vm.warp(periodOffset * 3 + targetFirstSaleTime);
+    vm.expectEmit(true, true, true, true);
+    emit StartedAuction(
+      initialAmountIn,
+      initialAmountOut,
+      uint48(periodOffset + periodLength*2),
+      2,
+      wrap(0),
+      wrap(0)
+    );
     uint amountOut = pair.maxAmountOut();
     assertEq(amountOut, 0);
     assertEq(
@@ -363,6 +426,8 @@ contract LiquidationPairTest is Test {
     assertEq(pair.amountOutForPeriod(), 0, "amount out for period is zero");
     assertEq(pair.lastAuctionTime(), periodOffset);
 
+    vm.expectEmit(true, true, true, true);
+    emit SwappedExactAmountOut(address(this), alice, amountOut, amountOut, amountIn);
     assertEq(
       pair.swapExactAmountOut(alice, amountOut, amountOut),
       amountIn,
