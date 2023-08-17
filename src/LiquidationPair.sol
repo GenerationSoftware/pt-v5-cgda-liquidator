@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
+import { SafeCast } from "openzeppelin/utils/math/SafeCast.sol";
 import { ILiquidationSource } from "pt-v5-liquidator-interfaces/ILiquidationSource.sol";
 import { ILiquidationPair } from "pt-v5-liquidator-interfaces/ILiquidationPair.sol";
 import { SD59x18, uEXP_MAX_INPUT, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
@@ -110,7 +111,7 @@ contract LiquidationPair is ILiquidationPair {
     periodOffset = _periodOffset;
     targetFirstSaleTime = _targetFirstSaleTime;
 
-    SD59x18 period59 = convert(int256(uint256(_periodLength)));
+    SD59x18 period59 = convert(SafeCast.toInt256(uint256(_periodLength)));
     if (_decayConstant.mul(period59).unwrap() > uEXP_MAX_INPUT) {
       revert DecayConstantTooLarge(wrap(uEXP_MAX_INPUT).div(period59), _decayConstant);
     }
@@ -164,7 +165,7 @@ contract LiquidationPair is ILiquidationPair {
   function estimateAmountOut(uint256 __amountIn) external returns (uint256) {
     _checkUpdateAuction();
     return uint(convert(ContinuousGDA.purchaseAmount(
-      convert(int(__amountIn)),
+      convert(SafeCast.toInt256(__amountIn)),
       _emissionRate,
       _initialPrice,
       decayConstant,
@@ -218,9 +219,9 @@ contract LiquidationPair is ILiquidationPair {
     if (swapAmountIn > _amountInMax) {
       revert SwapExceedsMax(_amountInMax, swapAmountIn);
     }
-    _amountInForPeriod += uint96(swapAmountIn);
-    _amountOutForPeriod += uint96(_amountOut);
-    _lastAuctionTime += uint48(uint256(convert(convert(int256(_amountOut)).div(_emissionRate))));
+    _amountInForPeriod += SafeCast.toUint96(swapAmountIn);
+    _amountOutForPeriod += SafeCast.toUint96(_amountOut);
+    _lastAuctionTime += SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
     source.liquidate(_account, tokenIn, swapAmountIn, tokenOut, _amountOut);
     return swapAmountIn;
   }
@@ -279,7 +280,7 @@ contract LiquidationPair is ILiquidationPair {
       amount = 0;
       // console2.log("AMOUNT IS ZERO");
     }
-    return convert(int256(amount)).div(convert(int32(int(periodLength))));
+    return convert(SafeCast.toInt256(amount)).div(convert(SafeCast.toInt32(SafeCast.toInt256(periodLength))));
   }
 
   /// @notice Computes the elapsed time within the current auction
@@ -288,7 +289,7 @@ contract LiquidationPair is ILiquidationPair {
     if (block.timestamp < _lastAuctionTime) {
       return wrap(0);
     }
-    return convert(int256(block.timestamp)).sub(convert(int256(uint256(_lastAuctionTime))));
+    return convert(SafeCast.toInt256(block.timestamp)).sub(convert(SafeCast.toInt256(_lastAuctionTime)));
   }
 
   /// @notice Computes the exact amount of input tokens required to purchase the given amount of output tokens
@@ -304,7 +305,7 @@ contract LiquidationPair is ILiquidationPair {
     }
     SD59x18 elapsed = _getElapsedTime();
     uint purchasePrice = uint256(convert(ContinuousGDA.purchasePrice(
-        convert(int(_amountOut)),
+        convert(SafeCast.toInt256(_amountOut)),
         _emissionRate,
         _initialPrice,
         decayConstant,
@@ -336,15 +337,15 @@ contract LiquidationPair is ILiquidationPair {
     }
     _amountInForPeriod = 0;
     _amountOutForPeriod = 0;
-    _lastAuctionTime = uint48(periodOffset + periodLength * __period);
+    _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
     _period = uint16(__period);
     SD59x18 emissionRate_ = _computeEmissionRate();
     _emissionRate = emissionRate_;
     if (_emissionRate.unwrap() != 0) {
       // compute k
-      SD59x18 timeSinceLastAuctionStart = convert(int(uint(targetFirstSaleTime)));
+      SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint(targetFirstSaleTime)));
       SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
-      SD59x18 exchangeRateAmountInToAmountOut = convert(int(uint(_lastNonZeroAmountIn))).div(convert(int(uint(_lastNonZeroAmountOut))));
+      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint(_lastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint(_lastNonZeroAmountOut))));
       SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
       _initialPrice = ContinuousGDA.computeK(
         emissionRate_,
