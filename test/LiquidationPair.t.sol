@@ -365,7 +365,7 @@ contract LiquidationPairTest is Test {
     assertEq(pair.lastAuctionTime(), periodOffset);
 
     assertEq(
-      pair.swapExactAmountOut(alice, amountOut, amountOut),
+      pair.swapExactAmountOut(alice, amountOut, amountOut, block.timestamp),
       amountIn,
       "equal at target sale time (with rounding error of -1)"
     );
@@ -383,7 +383,7 @@ contract LiquidationPairTest is Test {
 
   function testSwapExactAmountOut_SwapExpired() public {
     vm.warp(10 days);
-    vm.expectRevert(SwapExpired(10 days - 1));
+    vm.expectRevert(abi.encodeWithSelector(SwapExpired.selector, 10 days - 1));
     pair.swapExactAmountOut(alice, 1e18, 1e18, 10 days - 1);
   }
 
@@ -395,13 +395,13 @@ contract LiquidationPairTest is Test {
     mockLiquidatableBalanceOf(amountAvailable);
     uint maxAmountIn = amountOut/2; // assume it's almost 1:1 exchange rate
     vm.expectRevert(abi.encodeWithSelector(SwapExceedsMax.selector, maxAmountIn, amountIn));
-    pair.swapExactAmountOut(alice, amountOut, maxAmountIn);
+    pair.swapExactAmountOut(alice, amountOut, maxAmountIn, block.timestamp);
   }
 
   function swapAmountOut(uint256 amountOut) public returns (uint256 amountIn) {
     amountIn = pair.computeExactAmountIn(amountOut);
     mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, true);
-    assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max));
+    assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max, block.timestamp));
   }
 
   /* ============ Mocks ============ */

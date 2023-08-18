@@ -32,7 +32,8 @@ contract LiquidationRouter {
     address indexed receiver,
     uint256 amountOut,
     uint256 amountInMax,
-    uint256 amountIn
+    uint256 amountIn,
+    uint256 deadline
   );
 
   /* ============ Variables ============ */
@@ -64,7 +65,8 @@ contract LiquidationRouter {
     LiquidationPair _liquidationPair,
     address _receiver,
     uint256 _amountOut,
-    uint256 _amountInMax
+    uint256 _amountInMax,
+    uint256 _deadline
   ) external onlyTrustedLiquidationPair(_liquidationPair) returns (uint256) {
     IERC20(_liquidationPair.tokenIn()).safeTransferFrom(
       msg.sender,
@@ -72,9 +74,9 @@ contract LiquidationRouter {
       _liquidationPair.computeExactAmountIn(_amountOut)
     );
 
-    uint256 amountIn = _liquidationPair.swapExactAmountOut(_receiver, _amountOut, _amountInMax);
+    uint256 amountIn = _liquidationPair.swapExactAmountOut(_receiver, _amountOut, _amountInMax, _deadline);
 
-    emit SwappedExactAmountOut(_liquidationPair, _receiver, _amountOut, _amountInMax, amountIn);
+    emit SwappedExactAmountOut(_liquidationPair, _receiver, _amountOut, _amountInMax, amountIn, _deadline);
 
     return amountIn;
   }

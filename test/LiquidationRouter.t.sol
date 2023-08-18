@@ -31,7 +31,8 @@ contract LiquidationRouterTest is Test {
         address indexed receiver,
         uint256 amountOut,
         uint256 amountInMax,
-        uint256 amountIn
+        uint256 amountIn,
+        uint256 deadline
     );
 
     function setUp() public {
@@ -57,10 +58,12 @@ contract LiquidationRouterTest is Test {
     }
 
     function testSwapExactAmountOut_happyPath() public {
+        vm.warp(10 days);
         address receiver = address(this);
         uint256 amountOut = 1e18;
         uint256 amountIn = 1.5e18;
         uint256 amountInMax = 2e18;
+        uint256 deadline = block.timestamp;
 
         vm.mockCall(
             address(liquidationPair),
@@ -74,7 +77,7 @@ contract LiquidationRouterTest is Test {
         );
         vm.mockCall(
             address(liquidationPair),
-            abi.encodeWithSelector(liquidationPair.swapExactAmountOut.selector, receiver, amountOut, amountInMax),
+            abi.encodeWithSelector(liquidationPair.swapExactAmountOut.selector, receiver, amountOut, amountInMax, deadline),
             abi.encode(amountIn)
         );
 
@@ -84,14 +87,16 @@ contract LiquidationRouterTest is Test {
             receiver,
             amountOut,
             amountInMax,
-            amountIn
+            amountIn,
+            deadline
         );
 
         router.swapExactAmountOut(
             liquidationPair,
             address(this),
             amountOut,
-            amountInMax
+            amountInMax,
+            deadline
         );
     }
 
@@ -102,7 +107,8 @@ contract LiquidationRouterTest is Test {
             liquidationPair,
             address(this),
             1e18,
-            2e18
+            2e18,
+            block.timestamp
         );
     }
 
