@@ -14,6 +14,7 @@ import {
   SwapExceedsAvailable,
   DecayConstantTooLarge,
   PurchasePriceIsZero,
+  SwapExpired,
   SwapExceedsMax
 } from "../src/LiquidationPair.sol";
 
@@ -378,6 +379,12 @@ contract LiquidationPairTest is Test {
     assertEq(pair.amountInForPeriod(), 0, "amount in was reset to zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out was reset to zero");
     assertEq(pair.lastAuctionTime(), periodOffset + periodLength);
+  }
+
+  function testSwapExactAmountOut_SwapExpired() public {
+    vm.warp(10 days);
+    vm.expectRevert(SwapExpired(10 days - 1));
+    pair.swapExactAmountOut(alice, 1e18, 1e18, 10 days - 1);
   }
 
   function testSwapExactAmountOut_insufficient() public {

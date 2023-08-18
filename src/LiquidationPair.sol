@@ -14,6 +14,7 @@ error SwapExceedsAvailable(uint256 amountOut, uint256 available);
 error SwapExceedsMax(uint256 amountInMax, uint256 amountIn);
 error DecayConstantTooLarge(SD59x18 maxDecayConstant, SD59x18 decayConstant);
 error PurchasePriceIsZero(uint256 amountOut);
+error SwapExpired(uint256 deadline);
 
 /***
  * @title LiquidationPair
@@ -211,8 +212,12 @@ contract LiquidationPair is ILiquidationPair {
   function swapExactAmountOut(
     address _account,
     uint256 _amountOut,
-    uint256 _amountInMax
+    uint256 _amountInMax,
+    uint256 _deadline
   ) external returns (uint256) {
+    if (block.timestamp > _deadline) {
+      revert SwapExpired(_deadline);
+    }
     _checkUpdateAuction();
     uint swapAmountIn = _computeExactAmountIn(_amountOut);
     if (swapAmountIn > _amountInMax) {
