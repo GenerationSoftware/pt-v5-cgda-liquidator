@@ -54,3 +54,44 @@ Install dependencies:
 npm i
 ```
 
+
+## Derivations
+
+### Price Function
+
+$$ \frac{k}{l}\cdot\frac{\left(e^{\frac{lq}{r}}-1\right)}{e^{lt}} $$
+
+### Inverse Price Function
+
+Solve for q, knowing p
+
+$$ p = \frac{k}{l}\cdot\frac{\left(e^{\frac{lq}{r}}-1\right)}{e^{lt}} $$
+
+$$ p \cdot e^{lt} \cdot l = k\cdot(e^{\frac{lq}{r}}-1) $$
+
+$$ p \cdot e^{lt} \cdot l = k \cdot e^{\frac{lq}{r}}- k $$
+
+$$ \frac{p \cdot e^{lt} \cdot l + k}{k} = e^{\frac{lq}{r}} $$
+
+$$ ln(\frac{p \cdot e^{lt} \cdot l + k}{k}) = \frac{lq}{r} $$
+
+$$ r \cdot ln(\frac{p \cdot e^{lt} \cdot l + k}{k}) = l\cdot q $$
+
+$$ \frac{r \cdot ln(\frac{p \cdot e^{lt} \cdot l + k}{k})}{l} = q $$
+
+### Compute K
+
+We know:
+
+- r: emissionRate
+- l: decayConstant
+- t: targetFirstSaleTime
+- q: purchaseAmount
+- p: price
+
+$$ p = \frac{k}{l}\cdot\frac{\left(e^{\frac{lq}{r}}-1\right)}{e^{lt}} $$
+
+$$ l\cdot p\cdot e^{lt} = k\cdot\left(e^{\frac{lq}{r}}-1\right) $$
+
+$$ \frac{l\cdot p\cdot e^{lt}}{(e^{\frac{lq}{r}}-1)} = k $$
+

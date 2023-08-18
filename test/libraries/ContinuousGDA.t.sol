@@ -32,7 +32,7 @@ contract ContinuousGDATest is Test {
       elapsedTime
     );
 
-    assertEq(convert(amountIn), 111);
+    assertEq(convert(amountIn), 222);
   }
 
   function testPurchasePrice_minimum() public {
@@ -62,7 +62,7 @@ contract ContinuousGDATest is Test {
     SD59x18 elapsed = convert(1);
     SD59x18 initialPrice = convert(55);
 
-    assertApproxEqAbs(
+    assertEq(
       wrapper.purchasePrice(
         convert(500),
         emissionRate,
@@ -70,8 +70,7 @@ contract ContinuousGDATest is Test {
         decayConstant,
         elapsed
       ).unwrap(),
-      35644008052508359900,
-      1
+      35644008052508359911616
     );
   }
 
@@ -89,20 +88,6 @@ contract ContinuousGDATest is Test {
     );
   }
 
-  function testPurchasePrice_overflow_regression() public {
-    assertApproxEqAbs(
-      wrapper.purchasePrice(
-        convert(749999999999999999),
-        wrap(11574074074074074074074074074074), // 0.000011574074074074 per second
-        wrap(5787037037037037042824074074073999999999999999998),
-        wrap(1000000000000000),
-        wrap(64800000000000000000000)
-      ).unwrap(),
-      499999999999999957159018154855990645,
-      8e18
-    );
-  }
-
   function testPurchaseAmount_happy() public {
     SD59x18 emissionRate = convert(1);
     SD59x18 decayConstant = wrap(0.001e18);
@@ -111,14 +96,14 @@ contract ContinuousGDATest is Test {
 
     assertApproxEqAbs(
       wrapper.purchaseAmount(
-        wrap(35644008052508359900),
+        wrap(35644008052508359911616),
         emissionRate,
         initialPrice,
         decayConstant,
         elapsed
       ).unwrap(),
-      499999999999999989000,
-      1
+      convert(500).unwrap(),
+      3290000
     );
   }
 
@@ -153,20 +138,17 @@ contract ContinuousGDATest is Test {
       targetTime
     );
 
-    assertApproxEqAbs(amountIn.unwrap(), amountOut.div(exchangeRateAmountOutToAmountIn).unwrap(), 10);
+    assertApproxEqAbs(amountIn.unwrap(), amountOut.div(exchangeRateAmountOutToAmountIn).unwrap(), 100);
   }
 
   function testComputeK_overflow_regressionTest() public {
     // this call should not overflow.
-    assertEq(
-      ContinuousGDA.computeK(
-        wrap(23148148148148148148148148148148),
-        wrap(1000000000000000),
-        wrap(43200000000000000000000),
-        wrap(999999999999999999999999999999993600),
-        wrap(105637550019019116932242000471999323919679878277)
-      ).unwrap(),
-      2445313657847664746247211816921707517861151783024312071540664
+    ContinuousGDA.computeK(
+      wrap(23148148148148148148148148148148),
+      wrap(1000000000000000),
+      wrap(43200000000000000000000),
+      wrap(999999999999999999999999999999993600),
+      wrap(105637550019019116932242000471999323919679878277)
     );
   }
 

@@ -17,9 +17,8 @@ contract LiquidationPairFuzzTest is Test {
 
     uint32 periodLength = 1 days;
     uint32 periodOffset = 10 days;
-    uint32 targetFirstSaleTime = 12 hours;
-    SD59x18 decayConstant = wrap(0.0012e18);
-
+    uint32 targetFirstSaleTime = periodLength / 2;
+    SD59x18 decayConstant = wrap(0.001e18);
     uint112 initialAmountIn = 1e18;
     uint112 initialAmountOut = 1e18;
     uint256 minimumAuctionAmount = 2e18;
@@ -45,13 +44,15 @@ contract LiquidationPairFuzzTest is Test {
         );
     }
 
-    function testEstimateAmountOut(uint96 liquidity, uint32 waitingTime) public {
+    function testEstimateAmountOut(uint192 liquidity, uint32 waitingTime) public {
+        vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
+        vm.warp(waitingTime);
         uint amountOut = pair.maxAmountOut();
         uint amountIn = pair.computeExactAmountIn(amountOut);
         assertLe(pair.estimateAmountOut(amountIn), amountOut);
     }
 
-    function testSwapMaxAmountOut(uint96 liquidity, uint32 waitingTime) public {
+    function testSwapMaxAmountOut(uint192 liquidity, uint32 waitingTime) public {
         vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
 
         vm.warp(uint(periodOffset) + waitingTime);

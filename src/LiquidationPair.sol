@@ -15,6 +15,8 @@ error SwapExceedsMax(uint256 amountInMax, uint256 amountIn);
 error DecayConstantTooLarge(SD59x18 maxDecayConstant, SD59x18 decayConstant);
 error PurchasePriceIsZero(uint256 amountOut);
 
+uint256 constant UINT192_MAX = type(uint192).max;
+
 /***
  * @title LiquidationPair
  * @author G9 Software Inc.
@@ -280,7 +282,8 @@ contract LiquidationPair is ILiquidationPair {
     if (amount < minimumAuctionAmount) {
       // do not release funds if the minimum is not met
       amount = 0;
-      // console2.log("AMOUNT IS ZERO");
+    } else if (amount > UINT192_MAX) {
+      amount = UINT192_MAX;
     }
     return convert(int256(amount)).div(convert(int32(int(periodLength))));
   }

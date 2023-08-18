@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
-import "forge-std/console2.sol";
-
 import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
 
 /// @title ContinuousGDA
@@ -32,18 +30,12 @@ library ContinuousGDA {
     if (_amount.unwrap() == 0) {
       return SD59x18.wrap(0);
     }
-    console2.log("here 1");
     SD59x18 topE = _decayConstant.mul(_amount).div(_emissionRate);
-    console2.log("here 2");
     topE = topE.exp().sub(ONE);
-    console2.log("here 3");
     SD59x18 bottomE = _decayConstant.mul(_timeSinceLastAuctionStart);
-    console2.log("here 4");
     bottomE = bottomE.exp();
-    console2.log("here 5");
     SD59x18 result;
     result = _k.div(bottomE).mul(topE.div(_decayConstant));
-    console2.log("here 8");
     return result;
   }
 
@@ -66,7 +58,7 @@ library ContinuousGDA {
       return SD59x18.wrap(0);
     }
     SD59x18 exp = _decayConstant.mul(_timeSinceLastAuctionStart).exp();
-    SD59x18 lnParam = _k.add(_price.mul(_emissionRate).mul(exp)).div(_k);
+    SD59x18 lnParam = ONE.add( exp.div(_k).mul(_decayConstant).mul(_price) );
     SD59x18 numerator = _emissionRate.mul(lnParam.ln());
     SD59x18 amount = numerator.div(_decayConstant);
     return amount;
@@ -85,11 +77,10 @@ library ContinuousGDA {
     SD59x18 _purchaseAmount,
     SD59x18 _price
   ) internal pure returns (SD59x18) {
-    SD59x18 exponent = _decayConstant.mul(_targetFirstSaleTime);
-    SD59x18 eValue = exponent.exp();
-    SD59x18 multiplier = _emissionRate.mul(_price);
+    SD59x18 topE = _decayConstant.mul(_targetFirstSaleTime).exp();
     SD59x18 denominator = (_decayConstant.mul(_purchaseAmount).div(_emissionRate)).exp().sub(ONE);
-    SD59x18 result = eValue.div(denominator);
+    SD59x18 result = topE.div(denominator);
+    SD59x18 multiplier = _decayConstant.mul(_price);
     return result.mul(multiplier);
   }
 }
