@@ -13,8 +13,6 @@ contract ContinuousGDAFuzzTest is Test {
     SD59x18 auctionDuration = convert(1 days);
     SD59x18 targetFirstSaleTime = convert(12 hours);
 
-    SD59x18 elapsedTime = convert(1);
-
     /**
      Fuzz exchange rates.
 
@@ -84,6 +82,8 @@ contract ContinuousGDAFuzzTest is Test {
         );
 
         console2.log("testInverseMatches purchasePrice...");
+
+        SD59x18 elapsedTime = convert(1);
 
         SD59x18 purchasePrice = ContinuousGDA.purchasePrice(
             purchaseAmount,

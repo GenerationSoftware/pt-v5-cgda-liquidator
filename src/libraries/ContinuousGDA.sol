@@ -35,11 +35,7 @@ library ContinuousGDA {
     SD59x18 bottomE = _decayConstant.mul(_timeSinceLastAuctionStart);
     bottomE = bottomE.exp();
     SD59x18 result;
-    if (_emissionRate.unwrap() > 1e18) {
-      result = _k.div(_emissionRate).mul(topE).div(bottomE);
-    } else {
-      result = _k.mul(topE.div(_emissionRate.mul(bottomE)));
-    }
+    result = _k.div(bottomE).mul(topE.div(_decayConstant));
     return result;
   }
 
@@ -62,7 +58,7 @@ library ContinuousGDA {
       return SD59x18.wrap(0);
     }
     SD59x18 exp = _decayConstant.mul(_timeSinceLastAuctionStart).exp();
-    SD59x18 lnParam = _k.add(_price.mul(_emissionRate).mul(exp)).div(_k);
+    SD59x18 lnParam = ONE.add( exp.div(_k).mul(_decayConstant).mul(_price) );
     SD59x18 numerator = _emissionRate.mul(lnParam.ln());
     SD59x18 amount = numerator.div(_decayConstant);
     return amount;
@@ -81,11 +77,10 @@ library ContinuousGDA {
     SD59x18 _purchaseAmount,
     SD59x18 _price
   ) internal pure returns (SD59x18) {
-    SD59x18 exponent = _decayConstant.mul(_targetFirstSaleTime);
-    SD59x18 eValue = exponent.exp();
-    SD59x18 multiplier = _emissionRate.mul(_price);
+    SD59x18 topE = _decayConstant.mul(_targetFirstSaleTime).exp();
     SD59x18 denominator = (_decayConstant.mul(_purchaseAmount).div(_emissionRate)).exp().sub(ONE);
-    SD59x18 result = eValue.div(denominator);
+    SD59x18 result = topE.div(denominator);
+    SD59x18 multiplier = _decayConstant.mul(_price);
     return result.mul(multiplier);
   }
 }

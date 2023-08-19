@@ -263,12 +263,6 @@ contract LiquidationPairTest is Test {
     assertApproxEqAbs(amountIn, available, 6e13);
   }
 
-  function testComputeExactAmountIn_zero() public {
-    vm.warp(periodOffset + periodLength - 1);
-    vm.expectRevert(abi.encodeWithSelector(PurchasePriceIsZero.selector, 1000));
-    pair.computeExactAmountIn(1000);
-  }
-
   function testComputeExactAmountIn_HappyPath() public {
     uint256 amountAvailable = 1e18;
     mockLiquidatableBalanceOf(amountAvailable);
@@ -286,9 +280,9 @@ contract LiquidationPairTest is Test {
 
   function testComputeExactAmountIn_at_end() public {
     mockLiquidatableBalanceOf(1e27);
-    vm.warp(periodOffset + periodLength - 1);
+    vm.warp(periodOffset + periodLength - 1); // at very end of period; price should be cheapest (or zero)
     uint amountOut = pair.maxAmountOut();
-    assertApproxEqAbs(pair.computeExactAmountIn(amountOut), 499999999999999961, 50);
+    assertEq(pair.computeExactAmountIn(amountOut), 0);
   }
 
   function testComputeExactAmountIn_exceedsAvailable() public {
@@ -402,6 +396,14 @@ contract LiquidationPairTest is Test {
     assertEq(pair.emissionRate().unwrap(), 0);
   }
 
+  function testEmissionRate_safeCap() public {
+    minimumAuctionAmount = 2e18;
+    pair = newPair();
+    mockLiquidatableBalanceOf(type(uint256).max);
+    vm.warp(periodOffset + periodLength);
+    assertEq(pair.emissionRate().unwrap(), convert(int(uint(type(uint192).max))).div(convert(int(periodLength))).unwrap());
+  }
+
   function testInitialPrice() public {
     assertNotEq(pair.initialPrice().unwrap(), 0);
   }
@@ -443,6 +445,14 @@ contract LiquidationPairTest is Test {
     assertEq(pair.amountInForPeriod(), 0, "amount in was reset to zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out was reset to zero");
     assertEq(pair.lastAuctionTime(), periodOffset + periodLength);
+  }
+
+  function testSwapExactAmountOut_PurchasePriceIsZero() public {
+    vm.warp(periodOffset + periodLength - 1);
+    mockLiquidatableBalanceOf(1e18);
+    uint amountOut = pair.maxAmountOut();
+    vm.expectRevert(abi.encodeWithSelector(PurchasePriceIsZero.selector, amountOut));
+    pair.swapExactAmountOut(alice, amountOut, amountOut);
   }
 
   function testSwapExactAmountOut_insufficient() public {
