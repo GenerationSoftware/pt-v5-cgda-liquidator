@@ -12,6 +12,7 @@ import { LiquidationPair } from "../src/LiquidationPair.sol";
 import {
     UnknownLiquidationPair,
     UndefinedLiquidationPairFactory,
+    SwapExpired,
     LiquidationRouter
 } from "../src/LiquidationRouter.sol";
 
@@ -77,7 +78,7 @@ contract LiquidationRouterTest is Test {
         );
         vm.mockCall(
             address(liquidationPair),
-            abi.encodeWithSelector(liquidationPair.swapExactAmountOut.selector, receiver, amountOut, amountInMax, deadline),
+            abi.encodeWithSelector(liquidationPair.swapExactAmountOut.selector, receiver, amountOut, amountInMax),
             abi.encode(amountIn)
         );
 
@@ -98,6 +99,12 @@ contract LiquidationRouterTest is Test {
             amountInMax,
             deadline
         );
+    }
+
+    function testSwapExactAmountOut_SwapExpired() public {
+        vm.warp(10 days);
+        vm.expectRevert(abi.encodeWithSelector(SwapExpired.selector, 10 days - 1));
+        router.swapExactAmountOut(liquidationPair, makeAddr("alice"), 1e18, 1e18, 10 days - 1);
     }
 
     function testSwapExactAmountOut_illegalRouter() public {
