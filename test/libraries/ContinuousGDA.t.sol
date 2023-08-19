@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import "forge-std/Test.sol";
-import "forge-std/console2.sol";
 import { SD59x18, convert, wrap, unwrap } from "prb-math/SD59x18.sol";
 
 import { ContinuousGDA } from "../../src/libraries/ContinuousGDA.sol";

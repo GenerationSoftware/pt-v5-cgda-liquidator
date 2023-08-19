@@ -2,6 +2,7 @@
 pragma solidity 0.8.19;
 
 import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
+import { SafeSD59x18 } from "./SafeSD59x18.sol";
 
 /// @title ContinuousGDA
 /// @author G9 Software Inc.
@@ -9,6 +10,7 @@ import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
 /// See https://www.paradigm.xyz/2022/04/gda
 /// @dev Pricing formula adapted from https://github.com/FrankieIsLost/gradual-dutch-auction/blob/master/src/ContinuousGDA.sol
 library ContinuousGDA {
+  using SafeSD59x18 for SD59x18;
 
   /// @notice a helpful constant
   SD59x18 internal constant ONE = SD59x18.wrap(1e18);
@@ -31,9 +33,9 @@ library ContinuousGDA {
       return SD59x18.wrap(0);
     }
     SD59x18 topE = _decayConstant.mul(_amount).div(_emissionRate);
-    topE = topE.exp().sub(ONE);
+    topE = topE.safeExp().sub(ONE);
     SD59x18 bottomE = _decayConstant.mul(_timeSinceLastAuctionStart);
-    bottomE = bottomE.exp();
+    bottomE = bottomE.safeExp();
     SD59x18 result;
     result = _k.div(bottomE).mul(topE.div(_decayConstant));
     return result;
@@ -57,7 +59,7 @@ library ContinuousGDA {
     if (_price.unwrap() == 0) {
       return SD59x18.wrap(0);
     }
-    SD59x18 exp = _decayConstant.mul(_timeSinceLastAuctionStart).exp();
+    SD59x18 exp = _decayConstant.mul(_timeSinceLastAuctionStart).safeExp();
     SD59x18 lnParam = ONE.add( exp.div(_k).mul(_decayConstant).mul(_price) );
     SD59x18 numerator = _emissionRate.mul(lnParam.ln());
     SD59x18 amount = numerator.div(_decayConstant);
@@ -77,8 +79,8 @@ library ContinuousGDA {
     SD59x18 _purchaseAmount,
     SD59x18 _price
   ) internal pure returns (SD59x18) {
-    SD59x18 topE = _decayConstant.mul(_targetFirstSaleTime).exp();
-    SD59x18 denominator = (_decayConstant.mul(_purchaseAmount).div(_emissionRate)).exp().sub(ONE);
+    SD59x18 topE = _decayConstant.mul(_targetFirstSaleTime).safeExp();
+    SD59x18 denominator = (_decayConstant.mul(_purchaseAmount).div(_emissionRate)).safeExp().sub(ONE);
     SD59x18 result = topE.div(denominator);
     SD59x18 multiplier = _decayConstant.mul(_price);
     return result.mul(multiplier);
