@@ -36,10 +36,10 @@ contract LiquidationPair is ILiquidationPair {
   /// @param emissionRate The rate of token emissions for the current auction
   /// @param initialPrice The initial price for the current auction
   event StartedAuction(
-    uint112 lastNonZeroAmountIn,
-    uint112 lastNonZeroAmountOut,
+    uint104 lastNonZeroAmountIn,
+    uint104 lastNonZeroAmountOut,
     uint48 lastAuctionTime,
-    uint16 period,
+    uint48 period,
     SD59x18 emissionRate,
     SD59x18 initialPrice
   );
@@ -53,9 +53,9 @@ contract LiquidationPair is ILiquidationPair {
   event SwappedExactAmountOut(
     address sender,
     address receiver,
-    uint amountOut,
-    uint amountInMax,
-    uint amountIn
+    uint256 amountOut,
+    uint256 amountInMax,
+    uint256 amountIn
   );
 
   /* ============ Variables ============ */
@@ -89,19 +89,19 @@ contract LiquidationPair is ILiquidationPair {
   uint256 public immutable minimumAuctionAmount;
 
   /// @notice The last non-zero total tokens in for an auction. This is used to configure the target price for the next auction.
-  uint112 _lastNonZeroAmountIn;
+  uint104 _lastNonZeroAmountIn;
 
   /// @notice The last non-zero total tokens out for an auction.  This is used to configure the target price for the next auction.
-  uint112 _lastNonZeroAmountOut;
-
-  /// @notice The total tokens in for the current auction.
-  uint96 _amountInForPeriod;
-
-  /// @notice The total tokens out for the current auction.
-  uint96 _amountOutForPeriod;
+  uint104 _lastNonZeroAmountOut;
 
   /// @notice The current auction period. Note that this number can wrap.
-  uint16 _period;
+  uint48 _period;
+
+  /// @notice The total tokens in for the current auction.
+  uint104 _amountInForPeriod;
+
+  /// @notice The total tokens out for the current auction.
+  uint104 _amountOutForPeriod;
 
   /// @notice The timestamp at which emissions have been consumed to for the current auction
   uint48 _lastAuctionTime;
@@ -133,8 +133,8 @@ contract LiquidationPair is ILiquidationPair {
     uint32 _periodOffset,
     uint32 _targetFirstSaleTime,
     SD59x18 _decayConstant,
-    uint112 _initialAmountIn,
-    uint112 _initialAmountOut,
+    uint104 _initialAmountIn,
+    uint104 _initialAmountOut,
     uint256 _minimumAuctionAmount
   ) {
     source = _source;
@@ -209,14 +209,14 @@ contract LiquidationPair is ILiquidationPair {
 
   /// @notice Returns the total input tokens for the current auction.
   /// @return Total tokens in
-  function amountInForPeriod() external returns (uint96) {
+  function amountInForPeriod() external returns (uint104) {
     _checkUpdateAuction();
     return _amountInForPeriod;
   }
 
   /// @notice Returns the total output tokens for the current auction.
   /// @return Total tokens out
-  function amountOutForPeriod() external returns (uint96) {
+  function amountOutForPeriod() external returns (uint104) {
     _checkUpdateAuction();
     return _amountOutForPeriod;
   }
@@ -246,7 +246,8 @@ contract LiquidationPair is ILiquidationPair {
   function swapExactAmountOut(
     address _account,
     uint256 _amountOut,
-    uint256 _amountInMax
+    uint256 _amountInMax,
+    bytes memory _flashSwapData
   ) external returns (uint256) {
     _checkUpdateAuction();
     uint swapAmountIn = _computeExactAmountIn(_amountOut);
@@ -256,10 +257,10 @@ contract LiquidationPair is ILiquidationPair {
     if (swapAmountIn > _amountInMax) {
       revert SwapExceedsMax(_amountInMax, swapAmountIn);
     }
-    _amountInForPeriod += SafeCast.toUint96(swapAmountIn);
-    _amountOutForPeriod += SafeCast.toUint96(_amountOut);
+    _amountInForPeriod += SafeCast.toUint104(swapAmountIn);
+    _amountOutForPeriod += SafeCast.toUint104(_amountOut);
     _lastAuctionTime += SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
-    source.liquidate(_account, tokenIn, swapAmountIn, tokenOut, _amountOut);
+    source.liquidate(_account, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
     emit SwappedExactAmountOut(msg.sender, _account, _amountOut, _amountInMax, swapAmountIn);
 
@@ -372,10 +373,10 @@ contract LiquidationPair is ILiquidationPair {
       _lastNonZeroAmountIn = _amountInForPeriod;
       _lastNonZeroAmountOut = _amountOutForPeriod;
     }
+    _period = uint48(__period);
     _amountInForPeriod = 0;
     _amountOutForPeriod = 0;
     _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
-    _period = uint16(__period);
     SD59x18 emissionRate_ = _computeEmissionRate();
     _emissionRate = emissionRate_;
     if (_emissionRate.unwrap() != 0) {

@@ -32,8 +32,8 @@ contract LiquidationPairTest is Test {
   uint periodLength = 1 days;
   uint periodOffset = 1 days;
   uint32 targetFirstSaleTime = 12 hours;
-  uint112 initialAmountIn = 1e18;
-  uint112 initialAmountOut = 1e18;
+  uint104 initialAmountIn = 1e18;
+  uint104 initialAmountOut = 1e18;
   uint256 minimumAuctionAmount = 0;
 
   LiquidationPair pair;
@@ -48,10 +48,10 @@ contract LiquidationPairTest is Test {
   /// @param emissionRate The rate of token emissions for the current auction
   /// @param initialPrice The initial price for the current auction
   event StartedAuction(
-    uint112 lastNonZeroAmountIn,
-    uint112 lastNonZeroAmountOut,
+    uint104 lastNonZeroAmountIn,
+    uint104 lastNonZeroAmountOut,
     uint48 lastAuctionTime,
-    uint16 period,
+    uint48 period,
     SD59x18 emissionRate,
     SD59x18 initialPrice
   );
@@ -65,9 +65,9 @@ contract LiquidationPairTest is Test {
   event SwappedExactAmountOut(
     address sender,
     address receiver,
-    uint amountOut,
-    uint amountInMax,
-    uint amountIn
+    uint256 amountOut,
+    uint256 amountInMax,
+    uint256 amountIn
   );
 
   /* ============ Set up ============ */
@@ -161,8 +161,8 @@ contract LiquidationPairTest is Test {
       initialAmountOut,
       uint48(periodOffset),
       0,
-      wrap(1000000000000000000e18),
-      wrap(43200000000000000000000000000000000000000e18)
+      wrap(1000000000000000000000000000000000000),
+      wrap(43200000000000000000000000000000000000)
     );
     pair = new LiquidationPair(
       source,
@@ -422,7 +422,7 @@ contract LiquidationPairTest is Test {
     uint amountIn = pair.computeExactAmountIn(amountOut);
 
     mockLiquidatableBalanceOf(amountAvailable);
-    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, true);
+    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, "", true);
 
     assertEq(pair.amountInForPeriod(), 0, "amount in for period is zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out for period is zero");
@@ -431,7 +431,7 @@ contract LiquidationPairTest is Test {
     vm.expectEmit(true, true, true, true);
     emit SwappedExactAmountOut(address(this), alice, amountOut, amountOut, amountIn);
     assertEq(
-      pair.swapExactAmountOut(alice, amountOut, amountOut),
+      pair.swapExactAmountOut(alice, amountOut, amountOut, ""),
       amountIn,
       "equal at target sale time (with rounding error of -1)"
     );
@@ -452,7 +452,7 @@ contract LiquidationPairTest is Test {
     mockLiquidatableBalanceOf(1e18);
     uint amountOut = pair.maxAmountOut();
     vm.expectRevert(abi.encodeWithSelector(PurchasePriceIsZero.selector, amountOut));
-    pair.swapExactAmountOut(alice, amountOut, amountOut);
+    pair.swapExactAmountOut(alice, amountOut, amountOut, "");
   }
 
   function testSwapExactAmountOut_insufficient() public {
@@ -463,13 +463,13 @@ contract LiquidationPairTest is Test {
     mockLiquidatableBalanceOf(amountAvailable);
     uint maxAmountIn = amountOut/2; // assume it's almost 1:1 exchange rate
     vm.expectRevert(abi.encodeWithSelector(SwapExceedsMax.selector, maxAmountIn, amountIn));
-    pair.swapExactAmountOut(alice, amountOut, maxAmountIn);
+    pair.swapExactAmountOut(alice, amountOut, maxAmountIn, "");
   }
 
   function swapAmountOut(uint256 amountOut) public returns (uint256 amountIn) {
     amountIn = pair.computeExactAmountIn(amountOut);
-    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, true);
-    assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max));
+    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, "hello", true);
+    assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max, "hello"));
   }
 
   /* ============ Mocks ============ */
@@ -489,6 +489,7 @@ contract LiquidationPairTest is Test {
     uint256 _amountIn,
     address _tokenOut,
     uint256 _amountOut,
+    bytes memory _flashSwapData,
     bool _result
   ) internal {
     vm.mockCall(
@@ -499,7 +500,8 @@ contract LiquidationPairTest is Test {
         _tokenIn,
         _amountIn,
         _tokenOut,
-        _amountOut
+        _amountOut,
+        _flashSwapData
       ),
       abi.encode(_result)
     );

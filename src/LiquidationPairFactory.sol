@@ -32,8 +32,8 @@ contract LiquidationPairFactory {
     uint32 periodOffset,
     uint32 targetFirstSaleTime,
     SD59x18 decayConstant,
-    uint112 initialAmountIn,
-    uint112 initialAmountOut,
+    uint104 initialAmountIn,
+    uint104 initialAmountOut,
     uint256 minimumAuctionAmount
   );
 
@@ -70,8 +70,8 @@ contract LiquidationPairFactory {
     uint32 _periodOffset,
     uint32 _targetFirstSaleTime,
     SD59x18 _decayConstant,
-    uint112 _initialAmountIn,
-    uint112 _initialAmountOut,
+    uint104 _initialAmountIn,
+    uint104 _initialAmountOut,
     uint256 _minimumAuctionAmount
   ) external returns (LiquidationPair) {
     LiquidationPair _liquidationPair = new LiquidationPair(
