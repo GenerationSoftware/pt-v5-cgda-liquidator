@@ -244,7 +244,7 @@ contract LiquidationPair is ILiquidationPair {
 
   /// @inheritdoc ILiquidationPair
   function swapExactAmountOut(
-    address _account,
+    address _receiver,
     uint256 _amountOut,
     uint256 _amountInMax,
     bytes memory _flashSwapData
@@ -260,9 +260,9 @@ contract LiquidationPair is ILiquidationPair {
     _amountInForPeriod += SafeCast.toUint104(swapAmountIn);
     _amountOutForPeriod += SafeCast.toUint104(_amountOut);
     _lastAuctionTime += SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
-    source.liquidate(msg.sender, _account, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
+    source.liquidate(msg.sender, _receiver, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
-    emit SwappedExactAmountOut(msg.sender, _account, _amountOut, _amountInMax, swapAmountIn);
+    emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn);
 
     return swapAmountIn;
   }
