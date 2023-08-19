@@ -260,7 +260,7 @@ contract LiquidationPair is ILiquidationPair {
     _amountInForPeriod += SafeCast.toUint104(swapAmountIn);
     _amountOutForPeriod += SafeCast.toUint104(_amountOut);
     _lastAuctionTime += SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
-    source.liquidate(_account, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
+    source.liquidate(msg.sender, _account, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
     emit SwappedExactAmountOut(msg.sender, _account, _amountOut, _amountInMax, swapAmountIn);
 

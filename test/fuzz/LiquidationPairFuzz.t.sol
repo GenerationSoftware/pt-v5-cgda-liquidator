@@ -59,7 +59,7 @@ contract LiquidationPairFuzzTest is Test {
         uint amountOut = pair.maxAmountOut();
         uint amountIn = pair.computeExactAmountIn(amountOut);
         if (amountIn > 0) {
-            vm.mockCall(address(source), abi.encodeWithSelector(source.liquidate.selector, address(this), tokenIn, amountIn, tokenOut, amountOut, ""), abi.encode(true));
+            vm.mockCall(address(source), abi.encodeWithSelector(source.liquidate.selector, address(this), address(this), tokenIn, amountIn, tokenOut, amountOut, ""), abi.encode(true));
             pair.swapExactAmountOut(address(this), amountOut, amountIn, "");
         }
     }
