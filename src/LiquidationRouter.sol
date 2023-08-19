@@ -9,6 +9,7 @@ import { LiquidationPairFactory } from "./LiquidationPairFactory.sol";
 
 error UndefinedLiquidationPairFactory();
 error UnknownLiquidationPair(LiquidationPair liquidationPair);
+error SwapExpired(uint256 deadline);
 
 /// @title LiquidationRouter
 /// @author G9 Software Inc.
@@ -32,7 +33,8 @@ contract LiquidationRouter {
     address indexed receiver,
     uint256 amountOut,
     uint256 amountInMax,
-    uint256 amountIn
+    uint256 amountIn,
+    uint256 deadline
   );
 
   /* ============ Variables ============ */
@@ -64,8 +66,13 @@ contract LiquidationRouter {
     LiquidationPair _liquidationPair,
     address _receiver,
     uint256 _amountOut,
-    uint256 _amountInMax
+    uint256 _amountInMax,
+    uint256 _deadline
   ) external onlyTrustedLiquidationPair(_liquidationPair) returns (uint256) {
+    if (block.timestamp > _deadline) {
+      revert SwapExpired(_deadline);
+    }
+
     IERC20(_liquidationPair.tokenIn()).safeTransferFrom(
       msg.sender,
       _liquidationPair.target(),
@@ -74,7 +81,7 @@ contract LiquidationRouter {
 
     uint256 amountIn = _liquidationPair.swapExactAmountOut(_receiver, _amountOut, _amountInMax);
 
-    emit SwappedExactAmountOut(_liquidationPair, _receiver, _amountOut, _amountInMax, amountIn);
+    emit SwappedExactAmountOut(_liquidationPair, _receiver, _amountOut, _amountInMax, amountIn, _deadline);
 
     return amountIn;
   }
