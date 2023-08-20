@@ -20,6 +20,7 @@ contract LiquidationRouterTest is Test {
     using SafeERC20 for IERC20;
 
     IERC20 tokenIn;
+    IERC20 tokenOut;
     address target;
     LiquidationPairFactory factory;
     LiquidationPair liquidationPair;
@@ -42,11 +43,14 @@ contract LiquidationRouterTest is Test {
 
         tokenIn = IERC20(makeAddr("tokenIn"));
         vm.etch(address(tokenIn), "tokenIn");
+        tokenOut = IERC20(makeAddr("tokenOut"));
+        vm.etch(address(tokenOut), "tokenOut");
 
         liquidationPair = LiquidationPair(makeAddr("LiquidationPair"));
         vm.etch(address(liquidationPair), "LiquidationPair");
 
         vm.mockCall(address(liquidationPair), abi.encodeWithSelector(liquidationPair.tokenIn.selector), abi.encode(tokenIn));
+        vm.mockCall(address(liquidationPair), abi.encodeWithSelector(liquidationPair.tokenOut.selector), abi.encode(tokenOut));
         vm.mockCall(address(liquidationPair), abi.encodeWithSelector(liquidationPair.target.selector), abi.encode(target));
         vm.mockCall(address(factory), abi.encodeWithSelector(factory.deployedPairs.selector, liquidationPair), abi.encode(true));
 
@@ -77,8 +81,13 @@ contract LiquidationRouterTest is Test {
             abi.encode(true)
         );
         vm.mockCall(
+            address(tokenOut),
+            abi.encodeWithSelector(tokenOut.transfer.selector, address(this), amountOut),
+            abi.encode(true)
+        );
+        vm.mockCall(
             address(liquidationPair),
-            abi.encodeWithSelector(liquidationPair.swapExactAmountOut.selector, receiver, amountOut, amountInMax),
+            abi.encodeWithSelector(liquidationPair.swapExactAmountOut.selector, address(router), amountOut, amountInMax),
             abi.encode(amountIn)
         );
 

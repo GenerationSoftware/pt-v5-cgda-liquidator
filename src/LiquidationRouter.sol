@@ -79,7 +79,9 @@ contract LiquidationRouter {
       _liquidationPair.computeExactAmountIn(_amountOut)
     );
 
-    uint256 amountIn = _liquidationPair.swapExactAmountOut(_receiver, _amountOut, _amountInMax, "");
+    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, "");
+
+    IERC20(_liquidationPair.tokenOut()).safeTransfer(_receiver, _amountOut);
 
     emit SwappedExactAmountOut(_liquidationPair, _receiver, _amountOut, _amountInMax, amountIn, _deadline);
 
