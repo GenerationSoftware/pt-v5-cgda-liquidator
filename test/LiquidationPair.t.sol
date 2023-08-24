@@ -14,7 +14,10 @@ import {
   SwapExceedsAvailable,
   DecayConstantTooLarge,
   PurchasePriceIsZero,
-  SwapExceedsMax
+  SwapExceedsMax,
+  LiquidationSourceZeroAddress,
+  TokenInZeroAddress,
+  TokenOutZeroAddress
 } from "../src/LiquidationPair.sol";
 
 contract LiquidationPairTest is Test {
@@ -103,6 +106,54 @@ contract LiquidationPairTest is Test {
     decayConstant = wrap(0.01e18);
     vm.expectRevert(abi.encodeWithSelector(DecayConstantTooLarge.selector, wrap(1540327067910989), wrap(10000000000000000)));
     pair = newPair();
+  }
+
+  function testConstructor_LiquidationSourceZeroAddress() public {
+    vm.expectRevert(abi.encodeWithSelector(LiquidationSourceZeroAddress.selector));
+    pair = new LiquidationPair(
+      ILiquidationSource(address(0)),
+      tokenIn,
+      tokenOut,
+      uint32(periodLength),
+      uint32(periodOffset),
+      targetFirstSaleTime,
+      decayConstant,
+      1e18,
+      1e18,
+      minimumAuctionAmount
+    );
+  }
+
+  function testConstructor_TokenInZeroAddress() public {
+    vm.expectRevert(abi.encodeWithSelector(TokenInZeroAddress.selector));
+    pair = new LiquidationPair(
+      source,
+      address(0),
+      tokenOut,
+      uint32(periodLength),
+      uint32(periodOffset),
+      targetFirstSaleTime,
+      decayConstant,
+      1e18,
+      1e18,
+      minimumAuctionAmount
+    );
+  }
+
+  function testConstructor_TokenOutZeroAddress() public {
+    vm.expectRevert(abi.encodeWithSelector(TokenOutZeroAddress.selector));
+    pair = new LiquidationPair(
+      source,
+      tokenIn,
+      address(0),
+      uint32(periodLength),
+      uint32(periodOffset),
+      targetFirstSaleTime,
+      decayConstant,
+      1e18,
+      1e18,
+      minimumAuctionAmount
+    );
   }
 
   function testConstructor_amountInZero() public {
