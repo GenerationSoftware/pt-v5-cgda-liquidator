@@ -15,6 +15,9 @@ error SwapExceedsAvailable(uint256 amountOut, uint256 available);
 error SwapExceedsMax(uint256 amountInMax, uint256 amountIn);
 error DecayConstantTooLarge(SD59x18 maxDecayConstant, SD59x18 decayConstant);
 error PurchasePriceIsZero(uint256 amountOut);
+error LiquidationSourceZeroAddress();
+error TokenInZeroAddress();
+error TokenOutZeroAddress();
 
 uint256 constant UINT192_MAX = type(uint192).max;
 
@@ -137,6 +140,9 @@ contract LiquidationPair is ILiquidationPair {
     uint104 _initialAmountOut,
     uint256 _minimumAuctionAmount
   ) {
+    if (address(0) == address(_source)) revert LiquidationSourceZeroAddress();
+    if (address(0) == address(_tokenIn)) revert TokenInZeroAddress();
+    if (address(0) == address(_tokenOut)) revert TokenOutZeroAddress();
     source = _source;
     tokenIn = _tokenIn;
     tokenOut = _tokenOut;
