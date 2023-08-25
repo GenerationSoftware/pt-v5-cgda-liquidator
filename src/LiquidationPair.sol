@@ -379,6 +379,8 @@ contract LiquidationPair is ILiquidationPair {
       _lastNonZeroAmountIn = _amountInForPeriod;
       _lastNonZeroAmountOut = _amountOutForPeriod;
     }
+    uint104 cachedLastNonZeroAmountIn = _lastNonZeroAmountIn;
+    uint104 cachedLastNonZeroAmountOut = _lastNonZeroAmountOut;
     _period = uint48(__period);
     _amountInForPeriod = 0;
     _amountOutForPeriod = 0;
@@ -389,7 +391,7 @@ contract LiquidationPair is ILiquidationPair {
       // compute k
       SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint256(targetFirstSaleTime)));
       SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
-      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint256(_lastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint256(_lastNonZeroAmountOut))));
+      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountOut))));
       SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
       _initialPrice = ContinuousGDA.computeK(
         emissionRate_,
@@ -403,8 +405,8 @@ contract LiquidationPair is ILiquidationPair {
     }
 
     emit StartedAuction(
-      _lastNonZeroAmountIn,
-      _lastNonZeroAmountOut,
+      cachedLastNonZeroAmountIn,
+      cachedLastNonZeroAmountOut,
       _lastAuctionTime,
       _period,
       emissionRate_,
