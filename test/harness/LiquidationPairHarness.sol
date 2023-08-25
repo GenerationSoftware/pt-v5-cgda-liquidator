@@ -48,4 +48,8 @@ contract LiquidationPairHarness is LiquidationPair {
     _updateAuction(__period);
   }
 
+  function getElapsedTimeInternal() external view returns (SD59x18) {
+    return _getElapsedTime();
+  }
+
 }
