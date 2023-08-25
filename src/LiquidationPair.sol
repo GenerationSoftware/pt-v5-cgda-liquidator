@@ -385,7 +385,7 @@ contract LiquidationPair is ILiquidationPair {
     _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
     SD59x18 emissionRate_ = _computeEmissionRate();
     _emissionRate = emissionRate_;
-    if (_emissionRate.unwrap() != 0) {
+    if (emissionRate_.unwrap() != 0) {
       // compute k
       SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint256(targetFirstSaleTime)));
       SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
@@ -407,7 +407,7 @@ contract LiquidationPair is ILiquidationPair {
       _lastNonZeroAmountOut,
       _lastAuctionTime,
       _period,
-      _emissionRate,
+      emissionRate_,
       _initialPrice
     );
   }
