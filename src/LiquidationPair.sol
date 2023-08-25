@@ -410,7 +410,7 @@ contract LiquidationPair is ILiquidationPair {
       cachedLastNonZeroAmountIn,
       cachedLastNonZeroAmountOut,
       _lastAuctionTime,
-      _period,
+      uint48(__period),
       emissionRate_,
       _initialPrice
     );
