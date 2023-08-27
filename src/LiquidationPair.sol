@@ -10,7 +10,7 @@ import { ContinuousGDA } from "./libraries/ContinuousGDA.sol";
 
 error AmountInZero();
 error AmountOutZero();
-error TargetFirstSaleTimeLtPeriodLength(uint passedTargetSaleTime, uint periodLength);
+error TargetFirstSaleTimeLtPeriodLength(uint256 passedTargetSaleTime, uint256 periodLength);
 error SwapExceedsAvailable(uint256 amountOut, uint256 available);
 error SwapExceedsMax(uint256 amountInMax, uint256 amountIn);
 error DecayConstantTooLarge(SD59x18 maxDecayConstant, SD59x18 decayConstant);
@@ -204,7 +204,7 @@ contract LiquidationPair is ILiquidationPair {
   /// @inheritdoc ILiquidationPair
   function estimateAmountOut(uint256 __amountIn) external returns (uint256) {
     _checkUpdateAuction();
-    return uint(convert(ContinuousGDA.purchaseAmount(
+    return uint256(convert(ContinuousGDA.purchaseAmount(
       convert(SafeCast.toInt256(__amountIn)),
       _emissionRate,
       _initialPrice,
@@ -256,7 +256,7 @@ contract LiquidationPair is ILiquidationPair {
     bytes memory _flashSwapData
   ) external returns (uint256) {
     _checkUpdateAuction();
-    uint swapAmountIn = _computeExactAmountIn(_amountOut);
+    uint256 swapAmountIn = _computeExactAmountIn(_amountOut);
     if (swapAmountIn == 0) {
       revert PurchasePriceIsZero(_amountOut);
     }
@@ -312,8 +312,8 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Computes the maximum amount of output tokens that can be purchased
   /// @return Maximum amount of output tokens
   function _maxAmountOut() internal returns (uint256) {
-    uint emissions = uint(convert(_emissionRate.mul(_getElapsedTime())));
-    uint liquidatable = source.liquidatableBalanceOf(tokenOut);
+    uint256 emissions = uint256(convert(_emissionRate.mul(_getElapsedTime())));
+    uint256 liquidatable = source.liquidatableBalanceOf(tokenOut);
     return emissions > liquidatable ? liquidatable : emissions;
   }
 
@@ -352,7 +352,7 @@ contract LiquidationPair is ILiquidationPair {
       revert SwapExceedsAvailable(_amountOut, maxOut);
     }
     SD59x18 elapsed = _getElapsedTime();
-    uint purchasePrice = uint256(convert(ContinuousGDA.purchasePrice(
+    uint256 purchasePrice = uint256(convert(ContinuousGDA.purchasePrice(
         convert(SafeCast.toInt256(_amountOut)),
         _emissionRate,
         _initialPrice,
@@ -387,9 +387,9 @@ contract LiquidationPair is ILiquidationPair {
     _emissionRate = emissionRate_;
     if (_emissionRate.unwrap() != 0) {
       // compute k
-      SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint(targetFirstSaleTime)));
+      SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint256(targetFirstSaleTime)));
       SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
-      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint(_lastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint(_lastNonZeroAmountOut))));
+      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint256(_lastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint256(_lastNonZeroAmountOut))));
       SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
       _initialPrice = ContinuousGDA.computeK(
         emissionRate_,
