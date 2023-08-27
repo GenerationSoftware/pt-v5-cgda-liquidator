@@ -263,9 +263,9 @@ contract LiquidationPair is ILiquidationPair {
     if (swapAmountIn > _amountInMax) {
       revert SwapExceedsMax(_amountInMax, swapAmountIn);
     }
-    _amountInForPeriod += SafeCast.toUint104(swapAmountIn);
-    _amountOutForPeriod += SafeCast.toUint104(_amountOut);
-    _lastAuctionTime += SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
+    _amountInForPeriod = _amountInForPeriod + SafeCast.toUint104(swapAmountIn);
+    _amountOutForPeriod = _amountOutForPeriod + SafeCast.toUint104(_amountOut);
+    _lastAuctionTime = _lastAuctionTime + SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
     source.liquidate(msg.sender, _receiver, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
     emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn);
