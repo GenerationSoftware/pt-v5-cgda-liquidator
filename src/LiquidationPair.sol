@@ -334,10 +334,12 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Computes the elapsed time within the current auction
   /// @return The elapsed time
   function _getElapsedTime() internal view returns (SD59x18) {
-    if (block.timestamp < _lastAuctionTime) {
+    uint256 cachedTimestamp = block.timestamp;
+    uint48 cachedLastAuctionTime = _lastAuctionTime;
+    if (cachedTimestamp < cachedLastAuctionTime) {
       return wrap(0);
     }
-    return convert(SafeCast.toInt256(block.timestamp)).sub(convert(SafeCast.toInt256(_lastAuctionTime)));
+    return convert(SafeCast.toInt256(cachedTimestamp)).sub(convert(SafeCast.toInt256(cachedLastAuctionTime)));
   }
 
   /// @notice Computes the exact amount of input tokens required to purchase the given amount of output tokens
@@ -374,22 +376,30 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Updates the current auction to the given period
   /// @param __period The period that the auction should be updated to
   function _updateAuction(uint256 __period) internal {
+    uint104 cachedLastNonZeroAmountIn;
+    uint104 cachedLastNonZeroAmountOut;
     if (_amountInForPeriod > 0 && _amountOutForPeriod > 0) {
       // if we sold something, then update the previous non-zero amount
       _lastNonZeroAmountIn = _amountInForPeriod;
       _lastNonZeroAmountOut = _amountOutForPeriod;
+      cachedLastNonZeroAmountIn = _amountInForPeriod;
+      cachedLastNonZeroAmountOut = _amountOutForPeriod;
+    } else {
+      cachedLastNonZeroAmountIn = _lastNonZeroAmountIn;
+      cachedLastNonZeroAmountOut = _lastNonZeroAmountOut;
     }
+    
     _period = uint48(__period);
     _amountInForPeriod = 0;
     _amountOutForPeriod = 0;
     _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
     SD59x18 emissionRate_ = _computeEmissionRate();
     _emissionRate = emissionRate_;
-    if (_emissionRate.unwrap() != 0) {
+    if (emissionRate_.unwrap() != 0) {
       // compute k
       SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint256(targetFirstSaleTime)));
       SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
-      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint256(_lastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint256(_lastNonZeroAmountOut))));
+      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountOut))));
       SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
       _initialPrice = ContinuousGDA.computeK(
         emissionRate_,
@@ -403,11 +413,11 @@ contract LiquidationPair is ILiquidationPair {
     }
 
     emit StartedAuction(
-      _lastNonZeroAmountIn,
-      _lastNonZeroAmountOut,
+      cachedLastNonZeroAmountIn,
+      cachedLastNonZeroAmountOut,
       _lastAuctionTime,
-      _period,
-      _emissionRate,
+      uint48(__period),
+      emissionRate_,
       _initialPrice
     );
   }
