@@ -18,6 +18,7 @@ error PurchasePriceIsZero(uint256 amountOut);
 error LiquidationSourceZeroAddress();
 error TokenInZeroAddress();
 error TokenOutZeroAddress();
+error ReceiverIsZero();
 
 uint256 constant UINT192_MAX = type(uint192).max;
 
@@ -255,6 +256,9 @@ contract LiquidationPair is ILiquidationPair {
     uint256 _amountInMax,
     bytes memory _flashSwapData
   ) external returns (uint256) {
+    if (_receiver == address(0)) {
+      revert ReceiverIsZero();
+    }
     _checkUpdateAuction();
     uint256 swapAmountIn = _computeExactAmountIn(_amountOut);
     if (swapAmountIn == 0) {

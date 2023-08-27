@@ -17,6 +17,7 @@ import {
   SwapExceedsMax,
   LiquidationSourceZeroAddress,
   TokenInZeroAddress,
+  ReceiverIsZero,
   TokenOutZeroAddress
 } from "../src/LiquidationPair.sol";
 
@@ -463,6 +464,11 @@ contract LiquidationPairTest is Test {
     mockLiquidatableBalanceOf(0);
     vm.warp(periodOffset + periodLength);
     assertEq(pair.initialPrice().unwrap(), 0);
+  }
+
+  function testSwapExactAmountOut_ReceiverIsZero() public {
+    vm.expectRevert(abi.encodeWithSelector(ReceiverIsZero.selector));
+    pair.swapExactAmountOut(address(0), 1e18, 1e18, "");
   }
 
   function testSwapExactAmountOut_HappyPath() public {
