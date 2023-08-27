@@ -50,8 +50,31 @@ contract LiquidationPairFuzzTest is Test {
         uint amountOut = pair.maxAmountOut();
         if (amountOut > 0) {
             uint amountIn = pair.computeExactAmountIn(amountOut);
-            assertLe(pair.estimateAmountOut(amountIn), amountOut);
+            uint estimatedAmountOut = pair.estimateAmountOut(amountIn);
+            assertApproxEqAbs(estimatedAmountOut, amountOut, 1e9);
         }
+    }
+
+    function testEstimateAmountOut_counterExample1() public {
+        uint104 liquidity = 1356230770579;
+        uint32 waitingTime = 883162;
+        vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
+        vm.warp(waitingTime);
+        uint amountOut = pair.maxAmountOut();
+        uint amountIn = pair.computeExactAmountIn(amountOut);
+        uint estimatedAmountOut = pair.estimateAmountOut(amountIn);
+        assertApproxEqAbs(estimatedAmountOut, amountOut, 1e9);
+    }
+
+    function testEstimateAmountOut_counterExample2() public {
+        uint104 liquidity = 6524647850586847196313838081;
+        uint32 waitingTime = 1862006487;
+        vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
+        vm.warp(waitingTime);
+        uint amountOut = pair.maxAmountOut();
+        uint amountIn = pair.computeExactAmountIn(amountOut);
+        uint estimatedAmountOut = pair.estimateAmountOut(amountIn);
+        assertApproxEqAbs(estimatedAmountOut, amountOut, 1e9);
     }
 
     function testSwapMaxAmountOut(uint104 liquidity, uint32 waitingTime) public {

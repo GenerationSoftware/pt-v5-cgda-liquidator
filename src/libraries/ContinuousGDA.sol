@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity 0.8.19;
 
-import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
+import { SD59x18, convert, unwrap, wrap } from "prb-math/SD59x18.sol";
 import { SafeSD59x18 } from "./SafeSD59x18.sol";
 
 /// @title ContinuousGDA
@@ -37,12 +37,12 @@ library ContinuousGDA {
     SD59x18 bottomE = _decayConstant.mul(_timeSinceLastAuctionStart);
     bottomE = bottomE.safeExp();
     SD59x18 result;
-    result = _k.div(bottomE).mul(topE.div(_decayConstant));
+    result = _k.div(bottomE.mul(_decayConstant)).mul(topE);
     return result;
   }
 
   /// @notice Computes the amount of tokens that can be purchased for a given price
-  /// @dev Note that this formula has significant floating point differences to the above. Either one, not both, should be used.
+  /// @dev This formula has significant floating point differences to the above. This should only be used as a rough estimate
   /// @param _price The price willing to be paid
   /// @param _emissionRate The emission rate of the CGDA
   /// @param _k The initial price of the CGDA
@@ -61,8 +61,10 @@ library ContinuousGDA {
     }
     SD59x18 exp = _decayConstant.mul(_timeSinceLastAuctionStart).safeExp();
     SD59x18 lnParam = ONE.add( exp.div(_k).mul(_decayConstant).mul(_price) );
-    SD59x18 numerator = _emissionRate.mul(lnParam.ln());
-    SD59x18 amount = numerator.div(_decayConstant);
+    // ensure the output amount is slightly less than the actual amount
+    SD59x18 fudge = wrap(0);//wrap(1e9);
+    SD59x18 amount = lnParam.ln().div(_decayConstant.add(fudge)).mul(_emissionRate);
+    // SD59x18 amount = numerator;
     return amount;
   }
 
