@@ -290,7 +290,7 @@ contract LiquidationPair is ILiquidationPair {
   /// @return The end timestamp
   function getPeriodEnd() external returns (uint256) {
     _checkUpdateAuction();
-    return _getPeriodEnd(_computePeriod());
+    return _getPeriodStart(_computePeriod()) + periodLength;
   }
 
   /// @notice Returns the last non-zero auction total input tokens
@@ -315,20 +315,6 @@ contract LiquidationPair is ILiquidationPair {
     uint256 emissions = SafeCast.toUint256(convert(_emissionRate.mul(_getElapsedTime())));
     uint256 liquidatable = source.liquidatableBalanceOf(tokenOut);
     return emissions > liquidatable ? liquidatable : emissions;
-  }
-
-  /// @notice Computes the current emission rate given the available source balance of the output token
-  /// @return The current emission rate
-  function _computeEmissionRate() internal returns (SD59x18) {
-    uint256 amount = source.liquidatableBalanceOf(tokenOut);
-    // console2.log("_computeEmissionRate amount", amount);
-    if (amount < minimumAuctionAmount) {
-      // do not release funds if the minimum is not met
-      delete amount;
-    } else if (amount > UINT192_MAX) {
-      amount = UINT192_MAX;
-    }
-    return convert(SafeCast.toInt256(amount)).div(convert(SafeCast.toInt32(SafeCast.toInt256(periodLength))));
   }
 
   /// @notice Computes the elapsed time within the current auction
@@ -393,7 +379,15 @@ contract LiquidationPair is ILiquidationPair {
     delete _amountInForPeriod;
     delete _amountOutForPeriod;
     _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
-    SD59x18 emissionRate_ = _computeEmissionRate();
+    uint256 auctionAmount = source.liquidatableBalanceOf(tokenOut);
+    // console2.log("_computeEmissionRate amount", amount);
+    if (auctionAmount < minimumAuctionAmount) {
+      // do not release funds if the minimum is not met
+      auctionAmount = 0;
+    } else if (auctionAmount > UINT192_MAX) {
+      auctionAmount = UINT192_MAX;
+    }
+    SD59x18 emissionRate_ = convert(SafeCast.toInt256(auctionAmount)).div(convert(SafeCast.toInt32(SafeCast.toInt256(periodLength))));
     _emissionRate = emissionRate_;
     if (emissionRate_.unwrap() != 0) {
       // compute k
@@ -427,13 +421,6 @@ contract LiquidationPair is ILiquidationPair {
   /// @return The start timestamp of the given period
   function _getPeriodStart(uint256 __period) internal view returns (uint256) {
     return periodOffset + __period * periodLength;
-  }
-
-  /// @notice Computes the end time of the given auction period
-  /// @param __period The auction period, in terms of number of periods since periodOffset
-  /// @return The end timestamp of the given period
-  function _getPeriodEnd(uint256 __period) internal view returns (uint256) {
-    return _getPeriodStart(__period) + periodLength;
   }
 
   /// @notice Computes the current auction period
