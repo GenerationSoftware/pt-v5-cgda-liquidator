@@ -376,13 +376,19 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Updates the current auction to the given period
   /// @param __period The period that the auction should be updated to
   function _updateAuction(uint256 __period) internal {
+    uint104 cachedLastNonZeroAmountIn;
+    uint104 cachedLastNonZeroAmountOut;
     if (_amountInForPeriod > 0 && _amountOutForPeriod > 0) {
       // if we sold something, then update the previous non-zero amount
       _lastNonZeroAmountIn = _amountInForPeriod;
       _lastNonZeroAmountOut = _amountOutForPeriod;
+      cachedLastNonZeroAmountIn = _amountInForPeriod;
+      cachedLastNonZeroAmountOut = _amountOutForPeriod;
+    } else {
+      cachedLastNonZeroAmountIn = _lastNonZeroAmountIn;
+      cachedLastNonZeroAmountOut = _lastNonZeroAmountOut;
     }
-    uint104 cachedLastNonZeroAmountIn = _lastNonZeroAmountIn;
-    uint104 cachedLastNonZeroAmountOut = _lastNonZeroAmountOut;
+    
     _period = uint48(__period);
     _amountInForPeriod = 0;
     _amountOutForPeriod = 0;
