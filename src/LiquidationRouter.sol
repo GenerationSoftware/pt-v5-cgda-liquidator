@@ -24,12 +24,14 @@ contract LiquidationRouter {
 
   /// @notice Emitted after a swap occurs
   /// @param liquidationPair The pair that was swapped against
+  /// @param sender The address that initiated the swap
   /// @param receiver The address that received the output tokens
   /// @param amountOut The amount of output tokens received
   /// @param amountInMax The maximum amount of input tokens that could have been used
   /// @param amountIn The amount of input tokens that were actually used
   event SwappedExactAmountOut(
     LiquidationPair indexed liquidationPair,
+    address indexed sender,
     address indexed receiver,
     uint256 amountOut,
     uint256 amountInMax,
@@ -83,7 +85,7 @@ contract LiquidationRouter {
 
     IERC20(_liquidationPair.tokenOut()).safeTransfer(_receiver, _amountOut);
 
-    emit SwappedExactAmountOut(_liquidationPair, _receiver, _amountOut, _amountInMax, amountIn, _deadline);
+    emit SwappedExactAmountOut(_liquidationPair, msg.sender, _receiver, _amountOut, _amountInMax, amountIn, _deadline);
 
     return amountIn;
   }
