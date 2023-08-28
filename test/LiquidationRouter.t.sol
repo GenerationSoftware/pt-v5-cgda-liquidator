@@ -30,6 +30,7 @@ contract LiquidationRouterTest is Test {
     event LiquidationRouterCreated(LiquidationPairFactory indexed liquidationPairFactory);
     event SwappedExactAmountOut(
         LiquidationPair indexed liquidationPair,
+        address indexed sender,
         address indexed receiver,
         uint256 amountOut,
         uint256 amountInMax,
@@ -94,6 +95,7 @@ contract LiquidationRouterTest is Test {
         vm.expectEmit(true, true, false, true);
         emit SwappedExactAmountOut(
             liquidationPair,
+            address(this),
             receiver,
             amountOut,
             amountInMax,
