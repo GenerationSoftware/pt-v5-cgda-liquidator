@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.19;
 
-import "./LiquidationPair.sol";
+import { ILiquidationSource, LiquidationPair, SD59x18 } from "./LiquidationPair.sol";
 
 /// @title LiquidationPairFactory
 /// @author G9 Software Inc.
