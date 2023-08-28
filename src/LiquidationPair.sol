@@ -8,16 +8,46 @@ import { SD59x18, uEXP_MAX_INPUT, wrap, convert, unwrap } from "prb-math/SD59x18
 
 import { ContinuousGDA } from "./libraries/ContinuousGDA.sol";
 
+/// @notice Thrown when constructed with a zero initial amount in
 error AmountInZero();
+
+/// @notice Thrown when constructed with a zero initial amount out
 error AmountOutZero();
+
+/// @notice Thrown when the target sale time is greater than the period length 
+/// @param passedTargetSaleTime The requested target sale time
+/// @param periodLength The period length
 error TargetFirstSaleTimeLtPeriodLength(uint256 passedTargetSaleTime, uint256 periodLength);
+
+/// @notice Thrown when the swap amount exceeds the available amount
+/// @param amountOut The requested amount
+/// @param available The available amount
 error SwapExceedsAvailable(uint256 amountOut, uint256 available);
+
+/// @notice Thrown when the actual swap amount in exceeds the user defined maximum amount in
+/// @param amountInMax The user-defined max amount in
+/// @param amountIn The actual amount in
 error SwapExceedsMax(uint256 amountInMax, uint256 amountIn);
+
+/// @notice Thrown when the decay constant is too large
+/// @param maxDecayConstant The maximum decay constant
+/// @param decayConstant The requested decay constant
 error DecayConstantTooLarge(SD59x18 maxDecayConstant, SD59x18 decayConstant);
+
+/// @notice Throw when the amount in for a swap is zero
+/// @param amountOut The amount out
 error PurchasePriceIsZero(uint256 amountOut);
+
+/// @notice Thrown when the liquidation source is the zero address
 error LiquidationSourceZeroAddress();
+
+/// @notice Thrown when the token in is the zero address
 error TokenInZeroAddress();
+
+/// @notice Thrown when the token out is the zero address
 error TokenOutZeroAddress();
+
+/// @notice Thrown when the receiver of the swap is the zero address
 error ReceiverIsZero();
 
 uint256 constant UINT192_MAX = type(uint192).max;
