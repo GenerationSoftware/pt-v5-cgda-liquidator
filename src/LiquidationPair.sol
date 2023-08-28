@@ -92,28 +92,28 @@ contract LiquidationPair is ILiquidationPair {
   uint256 public immutable minimumAuctionAmount;
 
   /// @notice The last non-zero total tokens in for an auction. This is used to configure the target price for the next auction.
-  uint104 _lastNonZeroAmountIn;
+  uint104 internal _lastNonZeroAmountIn;
 
   /// @notice The last non-zero total tokens out for an auction.  This is used to configure the target price for the next auction.
-  uint104 _lastNonZeroAmountOut;
+  uint104 internal _lastNonZeroAmountOut;
 
   /// @notice The current auction period. Note that this number can wrap.
-  uint48 _period;
+  uint48 internal _period;
 
   /// @notice The total tokens in for the current auction.
-  uint104 _amountInForPeriod;
+  uint104 internal _amountInForPeriod;
 
   /// @notice The total tokens out for the current auction.
-  uint104 _amountOutForPeriod;
+  uint104 internal _amountOutForPeriod;
 
   /// @notice The timestamp at which emissions have been consumed to for the current auction
-  uint48 _lastAuctionTime;
+  uint48 internal _lastAuctionTime;
 
   /// @notice The rate of token emissions for the current auction
-  SD59x18 _emissionRate;
+  SD59x18 internal _emissionRate;
 
   /// @notice The initial price for the current auction
-  SD59x18 _initialPrice;
+  SD59x18 internal _initialPrice;
 
   /* ============ Constructor ============ */
 
