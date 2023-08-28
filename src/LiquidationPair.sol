@@ -369,13 +369,12 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Computes the elapsed time within the current auction
   /// @return The elapsed time
   function _getElapsedTime() internal view returns (SD59x18) {
-    uint256 cachedTimestamp = block.timestamp;
     uint48 cachedLastAuctionTime = _lastAuctionTime;
-    if (cachedTimestamp < cachedLastAuctionTime) {
+    if (block.timestamp < cachedLastAuctionTime) {
       return wrap(0);
     }
     return (
-      convert(SafeCast.toInt256(cachedTimestamp)).sub(convert(SafeCast.toInt256(cachedLastAuctionTime)))
+      convert(SafeCast.toInt256(block.timestamp)).sub(convert(SafeCast.toInt256(cachedLastAuctionTime)))
     );
   }
 
