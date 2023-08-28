@@ -14,12 +14,12 @@ error AmountInZero();
 /// @notice Thrown when constructed with a zero initial amount out
 error AmountOutZero();
 
-/// @notice Thrown when the target sale time is greater than the period length 
+/// @notice Thrown when the target sale time is greater than or equal to the period length
 /// @param passedTargetSaleTime The requested target sale time
 /// @param periodLength The period length
-error TargetFirstSaleTimeLtPeriodLength(uint256 passedTargetSaleTime, uint256 periodLength);
+error TargetFirstSaleTimeGePeriodLength(uint256 passedTargetSaleTime, uint256 periodLength);
 
-/// @notice Thrown when the swap amount exceeds the available amount
+/// @notice Thrown when the swap exceeds the available amount
 /// @param amountOut The requested amount
 /// @param available The available amount
 error SwapExceedsAvailable(uint256 amountOut, uint256 available);
@@ -46,6 +46,7 @@ error TokenInZeroAddress();
 
 /// @notice Thrown when the token out is the zero address
 error TokenOutZeroAddress();
+error EmissionRateIsZero();
 
 /// @notice Thrown when the receiver of the swap is the zero address
 error ReceiverIsZero();
@@ -188,7 +189,7 @@ contract LiquidationPair is ILiquidationPair {
     }
 
     if (targetFirstSaleTime >= periodLength) {
-      revert TargetFirstSaleTimeLtPeriodLength(targetFirstSaleTime, periodLength);
+      revert TargetFirstSaleTimeGePeriodLength(targetFirstSaleTime, periodLength);
     }
 
     if (_initialAmountIn == 0) {
@@ -223,13 +224,21 @@ contract LiquidationPair is ILiquidationPair {
   /// @return The max number of tokens in
   function maxAmountIn() external returns (uint256) {
     _checkUpdateAuction();
-    return _computeExactAmountIn(_maxAmountOut());
+    SD59x18 eRate = _emissionRate;
+    if (eRate.unwrap() == 0) {
+      return 0;
+    }
+    return _computeExactAmountIn(_maxAmountOut(), eRate);
   }
 
   /// @inheritdoc ILiquidationPair
   function computeExactAmountIn(uint256 _amountOut) external returns (uint256) {
     _checkUpdateAuction();
-    return _computeExactAmountIn(_amountOut);
+    SD59x18 eRate = _emissionRate;
+    if (eRate.unwrap() == 0) {
+      revert EmissionRateIsZero();
+    }
+    return _computeExactAmountIn(_amountOut, eRate);
   }
 
   /// @inheritdoc ILiquidationPair
@@ -290,7 +299,11 @@ contract LiquidationPair is ILiquidationPair {
       revert ReceiverIsZero();
     }
     _checkUpdateAuction();
-    uint256 swapAmountIn = _computeExactAmountIn(_amountOut);
+    SD59x18 eRate = _emissionRate;
+    if (eRate.unwrap() == 0) {
+      revert EmissionRateIsZero();
+    }
+    uint256 swapAmountIn = _computeExactAmountIn(_amountOut, eRate);
     if (swapAmountIn == 0) {
       revert PurchasePriceIsZero(_amountOut);
     }
@@ -301,7 +314,7 @@ contract LiquidationPair is ILiquidationPair {
     _amountOutForPeriod = _amountOutForPeriod + SafeCast.toUint104(_amountOut);
     _lastAuctionTime = 
       _lastAuctionTime + 
-      SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
+      SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(eRate))));
     source.liquidate(msg.sender, _receiver, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
     emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn);
@@ -369,7 +382,7 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Computes the exact amount of input tokens required to purchase the given amount of output tokens
   /// @param _amountOut The number of output tokens desired
   /// @return The number of input tokens needed
-  function _computeExactAmountIn(uint256 _amountOut) internal returns (uint256) {
+  function _computeExactAmountIn(uint256 _amountOut, SD59x18 emissionRate_) internal returns (uint256) {
     if (_amountOut == 0) {
       return 0;
     }
@@ -380,7 +393,7 @@ contract LiquidationPair is ILiquidationPair {
     SD59x18 elapsed = _getElapsedTime();
     uint256 purchasePrice = SafeCast.toUint256(convert(ContinuousGDA.purchasePrice(
         convert(SafeCast.toInt256(_amountOut)),
-        _emissionRate,
+        emissionRate_,
         _initialPrice,
         decayConstant,
         elapsed
@@ -466,10 +479,9 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Computes the current auction period
   /// @return the current period
   function _computePeriod() internal view returns (uint256) {
-    uint256 _timestamp = block.timestamp;
-    if (_timestamp < periodOffset) {
+    if (block.timestamp < periodOffset) {
       return 0;
     }
-    return (_timestamp - periodOffset) / periodLength;
+    return (block.timestamp - periodOffset) / periodLength;
   }
 }

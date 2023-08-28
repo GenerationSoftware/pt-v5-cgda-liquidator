@@ -48,8 +48,10 @@ contract LiquidationPairFuzzTest is Test {
         vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
         vm.warp(waitingTime);
         uint amountOut = pair.maxAmountOut();
-        uint amountIn = pair.computeExactAmountIn(amountOut);
-        assertLe(pair.estimateAmountOut(amountIn), amountOut);
+        if (amountOut > 0) {
+            uint amountIn = pair.computeExactAmountIn(amountOut);
+            assertLe(pair.estimateAmountOut(amountIn), amountOut);
+        }
     }
 
     function testSwapMaxAmountOut(uint104 liquidity, uint32 waitingTime) public {
@@ -57,10 +59,12 @@ contract LiquidationPairFuzzTest is Test {
 
         vm.warp(uint(periodOffset) + waitingTime);
         uint amountOut = pair.maxAmountOut();
-        uint amountIn = pair.computeExactAmountIn(amountOut);
-        if (amountIn > 0) {
-            vm.mockCall(address(source), abi.encodeWithSelector(source.liquidate.selector, address(this), address(this), tokenIn, amountIn, tokenOut, amountOut, ""), abi.encode(true));
-            pair.swapExactAmountOut(address(this), amountOut, amountIn, "");
+        if (amountOut > 0) {
+            uint amountIn = pair.computeExactAmountIn(amountOut);
+            if (amountIn > 0) {
+                vm.mockCall(address(source), abi.encodeWithSelector(source.liquidate.selector, address(this), address(this), tokenIn, amountIn, tokenOut, amountOut, ""), abi.encode(true));
+                pair.swapExactAmountOut(address(this), amountOut, amountIn, "");
+            }
         }
     }
 }

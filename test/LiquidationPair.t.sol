@@ -10,7 +10,7 @@ import {
   LiquidationPair,
   AmountInZero,
   AmountOutZero,
-  TargetFirstSaleTimeLtPeriodLength,
+  TargetFirstSaleTimeGePeriodLength,
   SwapExceedsAvailable,
   DecayConstantTooLarge,
   PurchasePriceIsZero,
@@ -18,6 +18,7 @@ import {
   LiquidationSourceZeroAddress,
   TokenInZeroAddress,
   ReceiverIsZero,
+  EmissionRateIsZero,
   TokenOutZeroAddress
 } from "../src/LiquidationPair.sol";
 
@@ -95,6 +96,12 @@ contract LiquidationPairTest is Test {
 
   function testMaxAmountIn_before() public {
     vm.warp(0);
+    assertEq(pair.maxAmountIn(), 0);
+  }
+
+  function testMaxAmountIn_EmissionRateIsZero() public {
+    mockLiquidatableBalanceOf(0);
+    vm.warp(periodOffset + periodLength * 2);
     assertEq(pair.maxAmountIn(), 0);
   }
 
@@ -315,6 +322,13 @@ contract LiquidationPairTest is Test {
     assertApproxEqAbs(amountIn, available, 6e13);
   }
 
+  function testComputeExactAmountIn_EmissionRateIsZero() public {
+    mockLiquidatableBalanceOf(0);
+    vm.warp(periodOffset + periodLength * 10);
+    vm.expectRevert(abi.encodeWithSelector(EmissionRateIsZero.selector));
+    pair.computeExactAmountIn(1e18);
+  }
+
   function testComputeExactAmountIn_HappyPath() public {
     uint256 amountAvailable = 1e18;
     mockLiquidatableBalanceOf(amountAvailable);
@@ -358,13 +372,8 @@ contract LiquidationPairTest is Test {
       wrap(0),
       wrap(0)
     );
-    uint amountOut = pair.maxAmountOut();
-    assertEq(amountOut, 0);
-    assertEq(
-      pair.computeExactAmountIn(0),
-      0,
-      "equal at target sale time (with rounding error of -1)"
-    );
+    assertEq(pair.maxAmountOut(), 0);
+    assertEq(pair.maxAmountIn(), 0);
   }
 
   function testComputeExactAmountIn_jumpToFutureWithMoreLiquidity() public {
@@ -510,6 +519,13 @@ contract LiquidationPairTest is Test {
     uint amountOut = pair.maxAmountOut();
     vm.expectRevert(abi.encodeWithSelector(PurchasePriceIsZero.selector, amountOut));
     pair.swapExactAmountOut(alice, amountOut, amountOut, "");
+  }
+
+  function testSwapExactAmountOut_EmissionRateIsZero() public {
+    vm.warp(periodOffset + periodLength * 2);
+    mockLiquidatableBalanceOf(0);
+    vm.expectRevert(abi.encodeWithSelector(EmissionRateIsZero.selector));
+    pair.swapExactAmountOut(alice, 1e18, 1e18, "");
   }
 
   function testSwapExactAmountOut_insufficient() public {
