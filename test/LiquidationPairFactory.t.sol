@@ -27,9 +27,9 @@ contract LiquidationPairFactoryTest is Test {
 
   event PairCreated(
     LiquidationPair indexed pair,
+    address indexed tokenIn,
+    address indexed tokenOut,
     ILiquidationSource source,
-    address tokenIn,
-    address tokenOut,
     uint32 periodLength,
     uint32 periodOffset,
     uint32 targetFirstSaleTime,
@@ -61,9 +61,9 @@ contract LiquidationPairFactoryTest is Test {
     vm.expectEmit(false, false, false, true);
     emit PairCreated(
       LiquidationPair(0x0000000000000000000000000000000000000000),
-      ILiquidationSource(source),
       tokenIn,
       tokenOut,
+      ILiquidationSource(source),
       periodLength,
       periodOffset,
       targetFirstSaleTime,

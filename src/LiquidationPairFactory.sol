@@ -13,9 +13,9 @@ contract LiquidationPairFactory {
 
   /// @notice Emitted when a new LiquidationPair is created
   /// @param pair The address of the new pair
-  /// @param source The liquidation source that the pair is using
   /// @param tokenIn The input token for the pair
   /// @param tokenOut The output token for the pair
+  /// @param source The liquidation source that the pair is using
   /// @param periodLength The duration of auctions
   /// @param periodOffset The start time offset of auctions
   /// @param targetFirstSaleTime The target time for the first auction
@@ -25,9 +25,9 @@ contract LiquidationPairFactory {
   /// @param minimumAuctionAmount The minimum auction size in output tokens
   event PairCreated(
     LiquidationPair indexed pair,
+    address indexed tokenIn,
+    address indexed tokenOut,
     ILiquidationSource source,
-    address tokenIn,
-    address tokenOut,
     uint32 periodLength,
     uint32 periodOffset,
     uint32 targetFirstSaleTime,
@@ -92,9 +92,9 @@ contract LiquidationPairFactory {
 
     emit PairCreated(
       _liquidationPair,
-      _source,
       _tokenIn,
       _tokenOut,
+      _source,
       _periodLength,
       _periodOffset,
       _targetFirstSaleTime,
