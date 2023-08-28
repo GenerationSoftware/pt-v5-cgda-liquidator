@@ -380,7 +380,6 @@ contract LiquidationPair is ILiquidationPair {
     delete _amountOutForPeriod;
     _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
     uint256 auctionAmount = source.liquidatableBalanceOf(tokenOut);
-    // console2.log("_computeEmissionRate amount", amount);
     if (auctionAmount < minimumAuctionAmount) {
       // do not release funds if the minimum is not met
       auctionAmount = 0;
