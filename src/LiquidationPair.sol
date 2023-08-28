@@ -265,7 +265,9 @@ contract LiquidationPair is ILiquidationPair {
     }
     _amountInForPeriod = _amountInForPeriod + SafeCast.toUint104(swapAmountIn);
     _amountOutForPeriod = _amountOutForPeriod + SafeCast.toUint104(_amountOut);
-    _lastAuctionTime = _lastAuctionTime + SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
+    _lastAuctionTime = 
+      _lastAuctionTime + 
+      SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
     source.liquidate(msg.sender, _receiver, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
     emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn);
@@ -325,7 +327,9 @@ contract LiquidationPair is ILiquidationPair {
     if (cachedTimestamp < cachedLastAuctionTime) {
       return wrap(0);
     }
-    return convert(SafeCast.toInt256(cachedTimestamp)).sub(convert(SafeCast.toInt256(cachedLastAuctionTime)));
+    return (
+      convert(SafeCast.toInt256(cachedTimestamp)).sub(convert(SafeCast.toInt256(cachedLastAuctionTime)))
+    );
   }
 
   /// @notice Computes the exact amount of input tokens required to purchase the given amount of output tokens
@@ -392,7 +396,10 @@ contract LiquidationPair is ILiquidationPair {
       // compute k
       SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint256(targetFirstSaleTime)));
       SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
-      SD59x18 exchangeRateAmountInToAmountOut = convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountIn))).div(convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountOut))));
+      SD59x18 exchangeRateAmountInToAmountOut = 
+        convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountIn))).div(
+          convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountOut)))
+        );
       SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
       _initialPrice = ContinuousGDA.computeK(
         emissionRate_,
