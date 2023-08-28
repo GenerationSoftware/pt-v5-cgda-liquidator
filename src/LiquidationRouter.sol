@@ -61,7 +61,7 @@ contract LiquidationRouter {
   /// @notice Swaps the given amount of output tokens for at most input tokens
   /// @param _liquidationPair The pair to swap against
   /// @param _receiver The account to receive the output tokens
-  /// @param _amountOut The exactly amount of output tokens expected
+  /// @param _amountOut The exact amount of output tokens expected
   /// @param _amountInMax The maximum of input tokens to spend
   /// @return The actual number of input tokens used
   function swapExactAmountOut(
