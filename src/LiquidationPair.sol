@@ -324,7 +324,7 @@ contract LiquidationPair is ILiquidationPair {
     // console2.log("_computeEmissionRate amount", amount);
     if (amount < minimumAuctionAmount) {
       // do not release funds if the minimum is not met
-      amount = 0;
+      delete amount;
     } else if (amount > UINT192_MAX) {
       amount = UINT192_MAX;
     }
@@ -390,8 +390,8 @@ contract LiquidationPair is ILiquidationPair {
     }
     
     _period = uint48(__period);
-    _amountInForPeriod = 0;
-    _amountOutForPeriod = 0;
+    delete _amountInForPeriod;
+    delete _amountOutForPeriod;
     _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
     SD59x18 emissionRate_ = _computeEmissionRate();
     _emissionRate = emissionRate_;
