@@ -265,7 +265,7 @@ contract LiquidationPair is ILiquidationPair {
     }
     _amountInForPeriod = _amountInForPeriod + SafeCast.toUint104(swapAmountIn);
     _amountOutForPeriod = _amountOutForPeriod + SafeCast.toUint104(_amountOut);
-    _lastAuctionTime = _lastAuctionTime + SafeCast.toUint48(uint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
+    _lastAuctionTime = _lastAuctionTime + SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(_emissionRate))));
     source.liquidate(msg.sender, _receiver, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
     emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn);
@@ -312,7 +312,7 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Computes the maximum amount of output tokens that can be purchased
   /// @return Maximum amount of output tokens
   function _maxAmountOut() internal returns (uint256) {
-    uint256 emissions = uint256(convert(_emissionRate.mul(_getElapsedTime())));
+    uint256 emissions = SafeCast.toUint256(convert(_emissionRate.mul(_getElapsedTime())));
     uint256 liquidatable = source.liquidatableBalanceOf(tokenOut);
     return emissions > liquidatable ? liquidatable : emissions;
   }
@@ -354,7 +354,7 @@ contract LiquidationPair is ILiquidationPair {
       revert SwapExceedsAvailable(_amountOut, maxOut);
     }
     SD59x18 elapsed = _getElapsedTime();
-    uint256 purchasePrice = uint256(convert(ContinuousGDA.purchasePrice(
+    uint256 purchasePrice = SafeCast.toUint256(convert(ContinuousGDA.purchasePrice(
         convert(SafeCast.toInt256(_amountOut)),
         _emissionRate,
         _initialPrice,
