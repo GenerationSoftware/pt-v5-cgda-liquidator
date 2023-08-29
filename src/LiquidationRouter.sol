@@ -4,17 +4,19 @@ pragma solidity 0.8.19;
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
+import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallback.sol";
 import { LiquidationPair } from "./LiquidationPair.sol";
 import { LiquidationPairFactory } from "./LiquidationPairFactory.sol";
 
 error UndefinedLiquidationPairFactory();
 error UnknownLiquidationPair(LiquidationPair liquidationPair);
 error SwapExpired(uint256 deadline);
+error InvalidSender(address sender);
 
 /// @title LiquidationRouter
 /// @author G9 Software Inc.
 /// @notice Serves as the user-facing swapping interface for Liquidation Pairs.
-contract LiquidationRouter {
+contract LiquidationRouter is IFlashSwapCallback {
   using SafeERC20 for IERC20;
 
   /* ============ Events ============ */
@@ -75,13 +77,7 @@ contract LiquidationRouter {
       revert SwapExpired(_deadline);
     }
 
-    IERC20(_liquidationPair.tokenIn()).safeTransferFrom(
-      msg.sender,
-      _liquidationPair.target(),
-      _liquidationPair.computeExactAmountIn(_amountOut)
-    );
-
-    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, "");
+    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, abi.encode(_receiver));
 
     IERC20(_liquidationPair.tokenOut()).safeTransfer(_receiver, _amountOut);
 
@@ -90,11 +86,34 @@ contract LiquidationRouter {
     return amountIn;
   }
 
+  /// @inheritdoc IFlashSwapCallback
+  function flashSwapCallback(
+    address _liquidationPair,
+    address _sender,
+    uint256 _amountIn,
+    uint256 _amountOut,
+    bytes calldata _flashSwapData
+  ) external onlyTrustedLiquidationPair(LiquidationPair(msg.sender)) onlySelf(_sender) override {
+    address _originalSender = abi.decode(_flashSwapData, (address));
+    IERC20(LiquidationPair(msg.sender).tokenIn()).safeTransferFrom(
+      _originalSender,
+      LiquidationPair(msg.sender).target(),
+      _amountOut
+    );
+  }
+
   /// @notice Checks that the given pair was created by the factory
   /// @param _liquidationPair The pair to check
   modifier onlyTrustedLiquidationPair(LiquidationPair _liquidationPair) {
     if (!_liquidationPairFactory.deployedPairs(_liquidationPair)) {
       revert UnknownLiquidationPair(_liquidationPair);
+    }
+    _;
+  }
+
+  modifier onlySelf(address _sender) {
+    if (_sender != address(this)) {
+      revert InvalidSender(_sender);
     }
     _;
   }
