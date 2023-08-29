@@ -13,3 +13,6 @@
 [submodule "lib/ring-buffer-lib"]
 	path = lib/ring-buffer-lib
 	url = https://github.com/generationsoftware/ring-buffer-lib
+[submodule "lib/pt-v5-liquidator-interfaces"]
+	path = lib/pt-v5-liquidator-interfaces
+	url = https://github.com/generationsoftware/pt-v5-liquidator-interfaces
