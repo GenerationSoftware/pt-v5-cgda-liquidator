@@ -8,9 +8,16 @@ import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallba
 import { LiquidationPair } from "./LiquidationPair.sol";
 import { LiquidationPairFactory } from "./LiquidationPairFactory.sol";
 
+/// @notice Thrown when the liquidation pair factory is the zero address
 error UndefinedLiquidationPairFactory();
+
+/// @notice Throw when the liquidation pair was not created by the liquidation pair factory
 error UnknownLiquidationPair(LiquidationPair liquidationPair);
+
+/// @notice Thrown when a swap deadline has passed
 error SwapExpired(uint256 deadline);
+
+/// @notice Thrown when the router is used as a receiver in a swap by another EOA or contract
 error InvalidSender(address sender);
 
 /// @title LiquidationRouter
@@ -65,6 +72,7 @@ contract LiquidationRouter is IFlashSwapCallback {
   /// @param _receiver The account to receive the output tokens
   /// @param _amountOut The exact amount of output tokens expected
   /// @param _amountInMax The maximum of input tokens to spend
+  /// @param _deadline The timestamp that the swap must be completed by
   /// @return The actual number of input tokens used
   function swapExactAmountOut(
     LiquidationPair _liquidationPair,
@@ -111,6 +119,8 @@ contract LiquidationRouter is IFlashSwapCallback {
     _;
   }
 
+  /// @notice Checks that the given address matches this contract
+  /// @param _sender The address that called the liquidation pair
   modifier onlySelf(address _sender) {
     if (_sender != address(this)) {
       revert InvalidSender(_sender);
