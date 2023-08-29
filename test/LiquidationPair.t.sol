@@ -5,6 +5,7 @@ import "forge-std/console2.sol";
 import "forge-std/Test.sol";
 import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
 import { ILiquidationSource } from "pt-v5-liquidator-interfaces/ILiquidationSource.sol";
+import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallback.sol";
 
 import {
   LiquidationPair,
@@ -67,12 +68,14 @@ contract LiquidationPairTest is Test {
   /// @param amountOut The amount of tokens out
   /// @param amountInMax The maximum amount of tokens in
   /// @param amountIn The actual amount of tokens in
+  /// @param flashSwapData The data for the flash swap
   event SwappedExactAmountOut(
     address sender,
     address receiver,
     uint256 amountOut,
     uint256 amountInMax,
-    uint256 amountIn
+    uint256 amountIn,
+    bytes flashSwapData
   );
 
   /* ============ Set up ============ */
@@ -488,14 +491,14 @@ contract LiquidationPairTest is Test {
     uint amountIn = pair.computeExactAmountIn(amountOut);
 
     mockLiquidatableBalanceOf(amountAvailable);
-    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, "", true);
+    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut);
 
     assertEq(pair.amountInForPeriod(), 0, "amount in for period is zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out for period is zero");
     assertEq(pair.lastAuctionTime(), periodOffset);
 
     vm.expectEmit(true, true, true, true);
-    emit SwappedExactAmountOut(address(this), alice, amountOut, amountOut, amountIn);
+    emit SwappedExactAmountOut(address(this), alice, amountOut, amountOut, amountIn, "");
     assertEq(
       pair.swapExactAmountOut(alice, amountOut, amountOut, ""),
       amountIn,
@@ -511,6 +514,23 @@ contract LiquidationPairTest is Test {
     assertEq(pair.amountInForPeriod(), 0, "amount in was reset to zero");
     assertEq(pair.amountOutForPeriod(), 0, "amount out was reset to zero");
     assertEq(pair.lastAuctionTime(), periodOffset + periodLength);
+  }
+
+  function testSwapExactAmountOut_flashSwap() public {
+    uint256 amountAvailable = 1e18;
+
+    vm.warp(periodOffset + targetFirstSaleTime);
+    uint amountOut = pair.maxAmountOut();
+    uint amountIn = pair.computeExactAmountIn(amountOut);
+
+    mockLiquidatableBalanceOf(amountAvailable);
+    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut);
+
+    vm.mockCall(alice, abi.encodeCall(IFlashSwapCallback.flashSwapCallback, (address(pair), address(this), amountIn, amountOut, "hello")), abi.encode());
+    
+    vm.expectEmit(true, true, true, true);
+    emit SwappedExactAmountOut(address(this), alice, amountOut, amountOut, amountIn, "hello");
+    pair.swapExactAmountOut(alice, amountOut, amountOut, "hello");
   }
 
   function testSwapExactAmountOut_PurchasePriceIsZero() public {
@@ -541,8 +561,8 @@ contract LiquidationPairTest is Test {
 
   function swapAmountOut(uint256 amountOut) public returns (uint256 amountIn) {
     amountIn = pair.computeExactAmountIn(amountOut);
-    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut, "hello", true);
-    assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max, "hello"));
+    mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut);
+    assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max, ""));
   }
 
   /* ============ Mocks ============ */
@@ -561,23 +581,33 @@ contract LiquidationPairTest is Test {
     address _tokenIn,
     uint256 _amountIn,
     address _tokenOut,
-    uint256 _amountOut,
-    bytes memory _flashSwapData,
-    bool _result
+    uint256 _amountOut
   ) internal {
     vm.mockCall(
       _source,
-      abi.encodeWithSelector(
-        ILiquidationSource.liquidate.selector,
-        address(this),
-        _user,
-        _tokenIn,
-        _amountIn,
-        _tokenOut,
-        _amountOut,
-        _flashSwapData
+      abi.encodeCall(
+        ILiquidationSource.transferTokensOut,
+        (
+          address(this),
+          _user,
+          _tokenOut,
+          _amountOut
+        )
       ),
-      abi.encode(_result)
+      abi.encode()
+    );
+    vm.mockCall(
+      _source,
+      abi.encodeCall(
+        ILiquidationSource.verifyTokensIn,
+          (
+            address(this),
+            _user,
+            _tokenIn,
+            _amountIn
+          )
+        ),
+        abi.encode()
     );
   }
 

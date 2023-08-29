@@ -3,6 +3,7 @@ pragma solidity 0.8.19;
 
 import { SafeCast } from "openzeppelin/utils/math/SafeCast.sol";
 import { ILiquidationSource } from "pt-v5-liquidator-interfaces/ILiquidationSource.sol";
+import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallback.sol";
 import { ILiquidationPair } from "pt-v5-liquidator-interfaces/ILiquidationPair.sol";
 import { SD59x18, uEXP_MAX_INPUT, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
 
@@ -90,7 +91,8 @@ contract LiquidationPair is ILiquidationPair {
     address receiver,
     uint256 amountOut,
     uint256 amountInMax,
-    uint256 amountIn
+    uint256 amountIn,
+    bytes flashSwapData
   );
 
   /* ============ Variables ============ */
@@ -315,9 +317,32 @@ contract LiquidationPair is ILiquidationPair {
     _lastAuctionTime = 
       _lastAuctionTime + 
       SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(eRate))));
-    source.liquidate(msg.sender, _receiver, tokenIn, swapAmountIn, tokenOut, _amountOut, _flashSwapData);
 
-    emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn);
+    source.transferTokensOut(
+      msg.sender,
+      _receiver,
+      tokenOut,
+      _amountOut
+    );
+
+    if (_flashSwapData.length > 0) {
+      IFlashSwapCallback(_receiver).flashSwapCallback(
+        address(this),
+        msg.sender,
+        swapAmountIn,
+        _amountOut,
+        _flashSwapData
+      );
+    }
+
+    source.verifyTokensIn(
+      msg.sender,
+      _receiver,
+      tokenIn,
+      swapAmountIn
+    );
+
+    emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn, _flashSwapData);
 
     return swapAmountIn;
   }
