@@ -56,7 +56,7 @@ contract LiquidationPairTest is Test {
     uint104 lastNonZeroAmountIn,
     uint104 lastNonZeroAmountOut,
     uint48 lastAuctionTime,
-    uint48 period,
+    uint48 indexed period,
     SD59x18 emissionRate,
     SD59x18 initialPrice
   );
@@ -68,8 +68,8 @@ contract LiquidationPairTest is Test {
   /// @param amountInMax The maximum amount of tokens in
   /// @param amountIn The actual amount of tokens in
   event SwappedExactAmountOut(
-    address sender,
-    address receiver,
+    address indexed sender,
+    address indexed receiver,
     uint256 amountOut,
     uint256 amountInMax,
     uint256 amountIn
