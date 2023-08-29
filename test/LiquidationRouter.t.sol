@@ -13,6 +13,7 @@ import {
     UnknownLiquidationPair,
     UndefinedLiquidationPairFactory,
     SwapExpired,
+    InvalidSender,
     LiquidationRouter
 } from "../src/LiquidationRouter.sol";
 
@@ -50,10 +51,10 @@ contract LiquidationRouterTest is Test {
         liquidationPair = LiquidationPair(makeAddr("LiquidationPair"));
         vm.etch(address(liquidationPair), "LiquidationPair");
 
-        vm.mockCall(address(liquidationPair), abi.encodeWithSelector(liquidationPair.tokenIn.selector), abi.encode(tokenIn));
-        vm.mockCall(address(liquidationPair), abi.encodeWithSelector(liquidationPair.tokenOut.selector), abi.encode(tokenOut));
-        vm.mockCall(address(liquidationPair), abi.encodeWithSelector(liquidationPair.target.selector), abi.encode(target));
-        vm.mockCall(address(factory), abi.encodeWithSelector(factory.deployedPairs.selector, liquidationPair), abi.encode(true));
+        vm.mockCall(address(liquidationPair), abi.encodeCall(liquidationPair.tokenIn, ()), abi.encode(tokenIn));
+        vm.mockCall(address(liquidationPair), abi.encodeCall(liquidationPair.tokenOut, ()), abi.encode(tokenOut));
+        vm.mockCall(address(liquidationPair), abi.encodeCall(liquidationPair.target, ()), abi.encode(target));
+        vm.mockCall(address(factory), abi.encodeCall(factory.deployedPairs, liquidationPair), abi.encode(true));
 
         router = new LiquidationRouter(factory);
     }
@@ -73,22 +74,22 @@ contract LiquidationRouterTest is Test {
 
         vm.mockCall(
             address(liquidationPair),
-            abi.encodeWithSelector(liquidationPair.computeExactAmountIn.selector, amountOut),
+            abi.encodeCall(liquidationPair.computeExactAmountIn, (amountOut)),
             abi.encode(amountIn)
         );
         vm.mockCall(
             address(tokenIn),
-            abi.encodeWithSelector(tokenIn.transferFrom.selector, address(this), target, amountIn),
+            abi.encodeCall(tokenIn.transferFrom, (address(this), target, amountIn)),
             abi.encode(true)
         );
         vm.mockCall(
             address(tokenOut),
-            abi.encodeWithSelector(tokenOut.transfer.selector, address(this), amountOut),
+            abi.encodeCall(tokenOut.transfer, (address(this), amountOut)),
             abi.encode(true)
         );
         vm.mockCall(
             address(liquidationPair),
-            abi.encodeWithSelector(liquidationPair.swapExactAmountOut.selector, address(router), amountOut, amountInMax),
+            abi.encodeCall(liquidationPair.swapExactAmountOut, (address(router), amountOut, amountInMax, abi.encode(address(this)))),
             abi.encode(amountIn)
         );
 
@@ -112,14 +113,34 @@ contract LiquidationRouterTest is Test {
         );
     }
 
+    function testFlashSwapCallback_InvalidSender() public {
+        vm.expectRevert(abi.encodeWithSelector(InvalidSender.selector, address(this)));
+        vm.startPrank(address(liquidationPair));
+        router.flashSwapCallback(address(liquidationPair), address(this), 0, 0, abi.encode(address(this)));
+        vm.stopPrank();
+    }
+
+    function testFlashSwapCallback_UnknownLiquidationPair() public {
+        vm.mockCall(address(factory), abi.encodeCall(factory.deployedPairs, LiquidationPair(address(this))), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(UnknownLiquidationPair.selector, address(this)));
+        router.flashSwapCallback(address(liquidationPair), address(this), 0, 0, abi.encode(address(this)));
+    }
+
+    function testFlashSwapCallback_success() public {
+        vm.mockCall(address(tokenIn), abi.encodeCall(tokenIn.transferFrom, (address(this), target, 11e18)), abi.encode(true));
+        vm.startPrank(address(liquidationPair));
+        router.flashSwapCallback(address(liquidationPair), address(router), 11e18, 0, abi.encode(address(this)));
+        vm.stopPrank();
+    }
+
     function testSwapExactAmountOut_SwapExpired() public {
         vm.warp(10 days);
         vm.expectRevert(abi.encodeWithSelector(SwapExpired.selector, 10 days - 1));
         router.swapExactAmountOut(liquidationPair, makeAddr("alice"), 1e18, 1e18, 10 days - 1);
     }
 
-    function testSwapExactAmountOut_illegalRouter() public {
-        vm.mockCall(address(factory), abi.encodeWithSelector(factory.deployedPairs.selector, liquidationPair), abi.encode(false));
+    function testSwapExactAmountOut_UnknownLiquidationPair() public {
+        vm.mockCall(address(factory), abi.encodeCall(factory.deployedPairs, liquidationPair), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(UnknownLiquidationPair.selector, liquidationPair));
         router.swapExactAmountOut(
             liquidationPair,

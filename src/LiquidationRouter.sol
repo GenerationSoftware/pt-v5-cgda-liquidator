@@ -4,17 +4,26 @@ pragma solidity 0.8.19;
 import { IERC20 } from "openzeppelin/token/ERC20/IERC20.sol";
 import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
+import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallback.sol";
 import { LiquidationPair } from "./LiquidationPair.sol";
 import { LiquidationPairFactory } from "./LiquidationPairFactory.sol";
 
+/// @notice Thrown when the liquidation pair factory is the zero address
 error UndefinedLiquidationPairFactory();
+
+/// @notice Throw when the liquidation pair was not created by the liquidation pair factory
 error UnknownLiquidationPair(LiquidationPair liquidationPair);
+
+/// @notice Thrown when a swap deadline has passed
 error SwapExpired(uint256 deadline);
+
+/// @notice Thrown when the router is used as a receiver in a swap by another EOA or contract
+error InvalidSender(address sender);
 
 /// @title LiquidationRouter
 /// @author G9 Software Inc.
 /// @notice Serves as the user-facing swapping interface for Liquidation Pairs.
-contract LiquidationRouter {
+contract LiquidationRouter is IFlashSwapCallback {
   using SafeERC20 for IERC20;
 
   /* ============ Events ============ */
@@ -63,6 +72,7 @@ contract LiquidationRouter {
   /// @param _receiver The account to receive the output tokens
   /// @param _amountOut The exact amount of output tokens expected
   /// @param _amountInMax The maximum of input tokens to spend
+  /// @param _deadline The timestamp that the swap must be completed by
   /// @return The actual number of input tokens used
   function swapExactAmountOut(
     LiquidationPair _liquidationPair,
@@ -75,13 +85,7 @@ contract LiquidationRouter {
       revert SwapExpired(_deadline);
     }
 
-    IERC20(_liquidationPair.tokenIn()).safeTransferFrom(
-      msg.sender,
-      _liquidationPair.target(),
-      _liquidationPair.computeExactAmountIn(_amountOut)
-    );
-
-    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, "");
+    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, abi.encode(_receiver));
 
     IERC20(_liquidationPair.tokenOut()).safeTransfer(_receiver, _amountOut);
 
@@ -90,11 +94,36 @@ contract LiquidationRouter {
     return amountIn;
   }
 
+  /// @inheritdoc IFlashSwapCallback
+  function flashSwapCallback(
+    address _liquidationPair,
+    address _sender,
+    uint256 _amountIn,
+    uint256 _amountOut,
+    bytes calldata _flashSwapData
+  ) external onlyTrustedLiquidationPair(LiquidationPair(msg.sender)) onlySelf(_sender) override {
+    address _originalSender = abi.decode(_flashSwapData, (address));
+    IERC20(LiquidationPair(msg.sender).tokenIn()).safeTransferFrom(
+      _originalSender,
+      LiquidationPair(msg.sender).target(),
+      _amountIn
+    );
+  }
+
   /// @notice Checks that the given pair was created by the factory
   /// @param _liquidationPair The pair to check
   modifier onlyTrustedLiquidationPair(LiquidationPair _liquidationPair) {
     if (!_liquidationPairFactory.deployedPairs(_liquidationPair)) {
       revert UnknownLiquidationPair(_liquidationPair);
+    }
+    _;
+  }
+
+  /// @notice Checks that the given address matches this contract
+  /// @param _sender The address that called the liquidation pair
+  modifier onlySelf(address _sender) {
+    if (_sender != address(this)) {
+      revert InvalidSender(_sender);
     }
     _;
   }
