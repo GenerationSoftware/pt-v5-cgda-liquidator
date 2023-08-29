@@ -129,7 +129,7 @@ contract LiquidationRouterTest is Test {
     function testFlashSwapCallback_success() public {
         vm.mockCall(address(tokenIn), abi.encodeCall(tokenIn.transferFrom, (address(this), target, 11e18)), abi.encode(true));
         vm.startPrank(address(liquidationPair));
-        router.flashSwapCallback(address(liquidationPair), address(router), 0, 11e18, abi.encode(address(this)));
+        router.flashSwapCallback(address(liquidationPair), address(router), 11e18, 0, abi.encode(address(this)));
         vm.stopPrank();
     }
 

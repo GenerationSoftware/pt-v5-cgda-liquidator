@@ -98,7 +98,7 @@ contract LiquidationRouter is IFlashSwapCallback {
     IERC20(LiquidationPair(msg.sender).tokenIn()).safeTransferFrom(
       _originalSender,
       LiquidationPair(msg.sender).target(),
-      _amountOut
+      _amountIn
     );
   }
 
