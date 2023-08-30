@@ -62,8 +62,8 @@ contract LiquidationPairFuzzTest is Test {
         if (amountOut > 0) {
             uint amountIn = pair.computeExactAmountIn(amountOut);
             if (amountIn > 0) {
-                vm.mockCall(address(source), abi.encodeCall(source.transferTokensOut, (address(this), address(this), tokenOut, amountOut)), abi.encode());
-                vm.mockCall(address(source), abi.encodeCall(source.verifyTokensIn, (address(this), address(this), tokenIn, amountIn)), abi.encode());
+                vm.mockCall(address(source), abi.encodeCall(source.transferTokensOut, (address(this), address(this), tokenOut, amountOut)), abi.encode("somedata"));
+                vm.mockCall(address(source), abi.encodeCall(source.verifyTokensIn, (tokenIn, amountIn, "somedata")), abi.encode());
                 pair.swapExactAmountOut(address(this), amountOut, amountIn, "");
             }
         }

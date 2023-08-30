@@ -526,7 +526,7 @@ contract LiquidationPairTest is Test {
     mockLiquidatableBalanceOf(amountAvailable);
     mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut);
 
-    vm.mockCall(alice, abi.encodeCall(IFlashSwapCallback.flashSwapCallback, (address(pair), address(this), amountIn, amountOut, "hello")), abi.encode());
+    vm.mockCall(alice, abi.encodeCall(IFlashSwapCallback.flashSwapCallback, (address(this), amountIn, amountOut, "hello")), abi.encode());
     
     vm.expectEmit(true, true, true, true);
     emit SwappedExactAmountOut(address(this), alice, amountOut, amountOut, amountIn, "hello");
@@ -594,17 +594,16 @@ contract LiquidationPairTest is Test {
           _amountOut
         )
       ),
-      abi.encode()
+      abi.encode("hello")
     );
     vm.mockCall(
       _source,
       abi.encodeCall(
         ILiquidationSource.verifyTokensIn,
           (
-            address(this),
-            _user,
             _tokenIn,
-            _amountIn
+            _amountIn,
+            "hello"
           )
         ),
         abi.encode()
