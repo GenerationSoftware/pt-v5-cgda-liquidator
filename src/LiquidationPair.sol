@@ -113,8 +113,8 @@ contract LiquidationPair is ILiquidationPair {
   uint256 public immutable periodLength;
 
   /// @notice Sets the beginning timestamp for the first period.
-  /// @dev Ensure that the periodOffset is in the past.
-  uint256 public immutable periodOffset;
+  /// @dev If the firstPeriodStartsAt timestamp is in the future, the auctions won't run until then.
+  uint256 public immutable firstPeriodStartsAt;
 
   /// @notice The time within an auction at which the price of available tokens matches the previous non-zero exchange rate.
   uint32 public immutable targetFirstSaleTime;
@@ -156,7 +156,7 @@ contract LiquidationPair is ILiquidationPair {
   /// @param _tokenIn The token that is used to pay for auctions
   /// @param _tokenOut The token that is being auctioned
   /// @param _periodLength The duration of each auction.
-  /// @param _periodOffset Sets the beginning timestamp for the first period
+  /// @param _firstPeriodStartsAt Sets the beginning timestamp for the first period
   /// @param _targetFirstSaleTime The time within an auction at which the price of available tokens matches the previous non-zero exchange rate
   /// @param _decayConstant The rate at which the price decays
   /// @param _initialAmountIn The initial amount of tokens in for the first auction (used for the initial exchange rate)
@@ -167,7 +167,7 @@ contract LiquidationPair is ILiquidationPair {
     address _tokenIn,
     address _tokenOut,
     uint32 _periodLength,
-    uint32 _periodOffset,
+    uint32 _firstPeriodStartsAt,
     uint32 _targetFirstSaleTime,
     SD59x18 _decayConstant,
     uint104 _initialAmountIn,
@@ -182,7 +182,7 @@ contract LiquidationPair is ILiquidationPair {
     tokenOut = _tokenOut;
     decayConstant = _decayConstant;
     periodLength = _periodLength;
-    periodOffset = _periodOffset;
+    firstPeriodStartsAt = _firstPeriodStartsAt;
     targetFirstSaleTime = _targetFirstSaleTime;
 
     SD59x18 period59 = convert(SafeCast.toInt256(uint256(_periodLength)));
@@ -423,6 +423,9 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice Updates the current auction to the given period
   /// @param __period The period that the auction should be updated to
   function _updateAuction(uint256 __period) internal {
+    if (block.timestamp < firstPeriodStartsAt) {
+      return;
+    }
     uint104 cachedLastNonZeroAmountIn;
     uint104 cachedLastNonZeroAmountOut;
     if (_amountInForPeriod > 0 && _amountOutForPeriod > 0) {
@@ -439,7 +442,7 @@ contract LiquidationPair is ILiquidationPair {
     _period = uint48(__period);
     delete _amountInForPeriod;
     delete _amountOutForPeriod;
-    _lastAuctionTime = SafeCast.toUint48(periodOffset + periodLength * __period);
+    _lastAuctionTime = SafeCast.toUint48(firstPeriodStartsAt + periodLength * __period);
     uint256 auctionAmount = source.liquidatableBalanceOf(tokenOut);
     if (auctionAmount < minimumAuctionAmount) {
       // do not release funds if the minimum is not met
@@ -480,18 +483,18 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @notice Computes the start time of the given auction period
-  /// @param __period The auction period, in terms of number of periods since periodOffset
+  /// @param __period The auction period, in terms of number of periods since firstPeriodStartsAt
   /// @return The start timestamp of the given period
   function _getPeriodStart(uint256 __period) internal view returns (uint256) {
-    return periodOffset + __period * periodLength;
+    return firstPeriodStartsAt + __period * periodLength;
   }
 
   /// @notice Computes the current auction period
   /// @return the current period
   function _computePeriod() internal view returns (uint256) {
-    if (block.timestamp < periodOffset) {
+    if (block.timestamp < firstPeriodStartsAt) {
       return 0;
     }
-    return (block.timestamp - periodOffset) / periodLength;
+    return (block.timestamp - firstPeriodStartsAt) / periodLength;
   }
 }

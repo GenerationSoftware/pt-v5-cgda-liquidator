@@ -16,7 +16,7 @@ contract LiquidationPairFactoryTest is Test {
   address tokenIn;
   address tokenOut;
   uint32 periodLength = 1 days;
-  uint32 periodOffset = 7 days;
+  uint32 firstPeriodStartsAt = 7 days;
   uint32 targetFirstSaleTime = 1 hours;
   SD59x18 decayConstant = wrap(0.001e18);
   uint104 initialAmountIn = 1e18;
@@ -31,7 +31,7 @@ contract LiquidationPairFactoryTest is Test {
     address indexed tokenOut,
     ILiquidationSource source,
     uint32 periodLength,
-    uint32 periodOffset,
+    uint32 firstPeriodStartsAt,
     uint32 targetFirstSaleTime,
     SD59x18 decayConstant,
     uint104 initialAmountIn,
@@ -65,7 +65,7 @@ contract LiquidationPairFactoryTest is Test {
       tokenOut,
       ILiquidationSource(source),
       periodLength,
-      periodOffset,
+      firstPeriodStartsAt,
       targetFirstSaleTime,
       decayConstant,
       initialAmountIn,
@@ -82,7 +82,7 @@ contract LiquidationPairFactoryTest is Test {
       tokenIn,
       tokenOut,
       periodLength,
-      periodOffset,
+      firstPeriodStartsAt,
       targetFirstSaleTime,
       decayConstant,
       initialAmountIn,
@@ -99,7 +99,7 @@ contract LiquidationPairFactoryTest is Test {
     assertEq(address(lp.tokenIn()), tokenIn);
     assertEq(address(lp.tokenOut()), tokenOut);
     assertEq(lp.periodLength(), periodLength);
-    assertEq(lp.periodOffset(), periodOffset);
+    assertEq(lp.firstPeriodStartsAt(), firstPeriodStartsAt);
     assertEq(lp.targetFirstSaleTime(), targetFirstSaleTime);
     assertEq(lp.decayConstant().unwrap(), decayConstant.unwrap());
     assertEq(lp.lastNonZeroAmountIn(), initialAmountIn);
