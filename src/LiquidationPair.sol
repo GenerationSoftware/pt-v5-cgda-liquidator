@@ -113,7 +113,7 @@ contract LiquidationPair is ILiquidationPair {
   uint256 public immutable periodLength;
 
   /// @notice Sets the beginning timestamp for the first period.
-  /// @dev Ensure that the firstPeriodStartsAt is in the past.
+  /// @dev If the firstPeriodStartsAt timestamp is in the future, the auctions won't run until then.
   uint256 public immutable firstPeriodStartsAt;
 
   /// @notice The time within an auction at which the price of available tokens matches the previous non-zero exchange rate.
