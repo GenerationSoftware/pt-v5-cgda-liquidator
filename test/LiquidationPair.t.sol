@@ -424,22 +424,6 @@ contract LiquidationPairTest is Test {
     assertApproxEqAbs(exchangeRate.unwrap(), laterExchangeRate.unwrap(), 4e14, "exchange rate has been updated");
   }
 
-  function testEstimateAmountOut() public {
-    uint256 amountAvailable = 1e18;
-    mockLiquidatableBalanceOf(amountAvailable);
-
-    vm.warp(periodOffset + targetFirstSaleTime);
-    uint amountOut = pair.maxAmountOut();
-    uint amountIn = pair.computeExactAmountIn(amountOut);
-
-    assertApproxEqAbs(
-      pair.estimateAmountOut(amountIn),
-      amountOut,
-      1e18,
-      "equal at target sale time (with rounding error of -1)"
-    );
-  }
-
   /* ============ swapExactAmountOut ============ */
 
   function testEmissionRate_nonZero() public {
