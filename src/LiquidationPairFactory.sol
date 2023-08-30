@@ -17,7 +17,7 @@ contract LiquidationPairFactory {
   /// @param tokenOut The output token for the pair
   /// @param source The liquidation source that the pair is using
   /// @param periodLength The duration of auctions
-  /// @param periodOffset The start time offset of auctions
+  /// @param firstPeriodStartsAt The start time offset of auctions
   /// @param targetFirstSaleTime The target time for the first auction
   /// @param decayConstant The decay constant that the pair is using
   /// @param initialAmountIn The initial amount of input tokens (used to compute initial exchange rate)
@@ -29,7 +29,7 @@ contract LiquidationPairFactory {
     address indexed tokenOut,
     ILiquidationSource source,
     uint32 periodLength,
-    uint32 periodOffset,
+    uint32 firstPeriodStartsAt,
     uint32 targetFirstSaleTime,
     SD59x18 decayConstant,
     uint104 initialAmountIn,
@@ -55,7 +55,7 @@ contract LiquidationPairFactory {
   /// @param _tokenIn The input token for the pair
   /// @param _tokenOut The output token for the pair
   /// @param _periodLength The duration of auctions
-  /// @param _periodOffset The start time offset of auctions
+  /// @param _firstPeriodStartsAt The start time offset of auctions
   /// @param _targetFirstSaleTime The target time for the first auction
   /// @param _decayConstant The decay constant that the pair will use. This determines how rapidly the price changes.
   /// @param _initialAmountIn The initial amount of input tokens (used to compute initial exchange rate)
@@ -67,7 +67,7 @@ contract LiquidationPairFactory {
     address _tokenIn,
     address _tokenOut,
     uint32 _periodLength,
-    uint32 _periodOffset,
+    uint32 _firstPeriodStartsAt,
     uint32 _targetFirstSaleTime,
     SD59x18 _decayConstant,
     uint104 _initialAmountIn,
@@ -79,7 +79,7 @@ contract LiquidationPairFactory {
       _tokenIn,
       _tokenOut,
       _periodLength,
-      _periodOffset,
+      _firstPeriodStartsAt,
       _targetFirstSaleTime,
       _decayConstant,
       _initialAmountIn,
@@ -96,7 +96,7 @@ contract LiquidationPairFactory {
       _tokenOut,
       _source,
       _periodLength,
-      _periodOffset,
+      _firstPeriodStartsAt,
       _targetFirstSaleTime,
       _decayConstant,
       _initialAmountIn,

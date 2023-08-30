@@ -16,7 +16,7 @@ contract LiquidationPairFuzzTest is Test {
     address tokenOut;
 
     uint32 periodLength = 1 days;
-    uint32 periodOffset = 10 days;
+    uint32 firstPeriodStartsAt = 10 days;
     uint32 targetFirstSaleTime = periodLength / 2;
     SD59x18 decayConstant = wrap(0.001e18);
     uint104 initialAmountIn = 1e18;
@@ -24,7 +24,7 @@ contract LiquidationPairFuzzTest is Test {
     uint256 minimumAuctionAmount = 2e18;
 
     function setUp() public {
-        vm.warp(periodOffset);
+        vm.warp(firstPeriodStartsAt);
         source = ILiquidationSource(makeAddr("ILiquidationSource"));
         // always have 1000 available
         tokenIn = makeAddr("tokenIn");
@@ -35,7 +35,7 @@ contract LiquidationPairFuzzTest is Test {
             tokenIn,
             tokenOut,
             periodLength,
-            periodOffset,
+            firstPeriodStartsAt,
             targetFirstSaleTime,
             decayConstant,
             initialAmountIn,
@@ -57,7 +57,7 @@ contract LiquidationPairFuzzTest is Test {
     function testSwapMaxAmountOut(uint104 liquidity, uint32 waitingTime) public {
         vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
 
-        vm.warp(uint(periodOffset) + waitingTime);
+        vm.warp(uint(firstPeriodStartsAt) + waitingTime);
         uint amountOut = pair.maxAmountOut();
         if (amountOut > 0) {
             uint amountIn = pair.computeExactAmountIn(amountOut);
