@@ -23,8 +23,6 @@ contract LiquidationPairFuzzTest is Test {
     uint104 initialAmountOut = 1e18;
     uint256 minimumAuctionAmount = 2e18;
 
-    SD59x18 percentDeviation = wrap(0.01e18);
-
     function setUp() public {
         vm.warp(periodOffset);
         source = ILiquidationSource(makeAddr("ILiquidationSource"));
