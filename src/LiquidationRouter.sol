@@ -96,10 +96,9 @@ contract LiquidationRouter is IFlashSwapCallback {
 
   /// @inheritdoc IFlashSwapCallback
   function flashSwapCallback(
-    address _liquidationPair,
     address _sender,
     uint256 _amountIn,
-    uint256 _amountOut,
+    uint256,
     bytes calldata _flashSwapData
   ) external onlyTrustedLiquidationPair(LiquidationPair(msg.sender)) onlySelf(_sender) override {
     address _originalSender = abi.decode(_flashSwapData, (address));

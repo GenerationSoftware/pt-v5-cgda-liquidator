@@ -318,7 +318,7 @@ contract LiquidationPair is ILiquidationPair {
       _lastAuctionTime + 
       SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(eRate))));
 
-    source.transferTokensOut(
+    bytes memory transferTokensOutData = source.transferTokensOut(
       msg.sender,
       _receiver,
       tokenOut,
@@ -327,7 +327,6 @@ contract LiquidationPair is ILiquidationPair {
 
     if (_flashSwapData.length > 0) {
       IFlashSwapCallback(_receiver).flashSwapCallback(
-        address(this),
         msg.sender,
         swapAmountIn,
         _amountOut,
@@ -336,10 +335,9 @@ contract LiquidationPair is ILiquidationPair {
     }
 
     source.verifyTokensIn(
-      msg.sender,
-      _receiver,
       tokenIn,
-      swapAmountIn
+      swapAmountIn,
+      transferTokensOutData
     );
 
     emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn, _flashSwapData);

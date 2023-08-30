@@ -116,20 +116,20 @@ contract LiquidationRouterTest is Test {
     function testFlashSwapCallback_InvalidSender() public {
         vm.expectRevert(abi.encodeWithSelector(InvalidSender.selector, address(this)));
         vm.startPrank(address(liquidationPair));
-        router.flashSwapCallback(address(liquidationPair), address(this), 0, 0, abi.encode(address(this)));
+        router.flashSwapCallback(address(this), 0, 0, abi.encode(address(this)));
         vm.stopPrank();
     }
 
     function testFlashSwapCallback_UnknownLiquidationPair() public {
         vm.mockCall(address(factory), abi.encodeCall(factory.deployedPairs, LiquidationPair(address(this))), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(UnknownLiquidationPair.selector, address(this)));
-        router.flashSwapCallback(address(liquidationPair), address(this), 0, 0, abi.encode(address(this)));
+        router.flashSwapCallback(address(this), 0, 0, abi.encode(address(this)));
     }
 
     function testFlashSwapCallback_success() public {
         vm.mockCall(address(tokenIn), abi.encodeCall(tokenIn.transferFrom, (address(this), target, 11e18)), abi.encode(true));
         vm.startPrank(address(liquidationPair));
-        router.flashSwapCallback(address(liquidationPair), address(router), 11e18, 0, abi.encode(address(this)));
+        router.flashSwapCallback(address(router), 11e18, 0, abi.encode(address(this)));
         vm.stopPrank();
     }
 
