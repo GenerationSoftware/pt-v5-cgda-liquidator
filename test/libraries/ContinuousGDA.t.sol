@@ -87,39 +87,6 @@ contract ContinuousGDATest is Test {
     );
   }
 
-  function testPurchaseAmount_happy() public {
-    SD59x18 emissionRate = convert(1);
-    SD59x18 decayConstant = wrap(0.001e18);
-    SD59x18 elapsed = convert(1);
-    SD59x18 initialPrice = convert(55);
-
-    assertApproxEqAbs(
-      wrapper.purchaseAmount(
-        wrap(35644008052508359911616),
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        elapsed
-      ).unwrap(),
-      convert(500).unwrap(),
-      3290000
-    );
-  }
-
-  function testPurchaseAmount_zero() public {
-    assertApproxEqAbs(
-      wrapper.purchaseAmount(
-        wrap(0),
-        convert(1),
-        convert(55),
-        wrap(0.001e18),
-        convert(1)
-      ).unwrap(),
-      0,
-      1
-    );
-  }
-
   function testComputeK() public {
     SD59x18 exchangeRateAmountOutToAmountIn = wrap(10e18);
     SD59x18 emissionRate = wrap(0.1e18);
@@ -140,7 +107,7 @@ contract ContinuousGDATest is Test {
     assertApproxEqAbs(amountIn.unwrap(), amountOut.div(exchangeRateAmountOutToAmountIn).unwrap(), 100);
   }
 
-  function testComputeK_overflow_regressionTest() public {
+  function testComputeK_overflow_regressionTest() public pure {
     // this call should not overflow.
     ContinuousGDA.computeK(
       wrap(23148148148148148148148148148148),

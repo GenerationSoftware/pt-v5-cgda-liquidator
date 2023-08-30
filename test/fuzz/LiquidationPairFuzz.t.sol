@@ -44,16 +44,6 @@ contract LiquidationPairFuzzTest is Test {
         );
     }
 
-    function testEstimateAmountOut(uint104 liquidity, uint32 waitingTime) public {
-        vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
-        vm.warp(waitingTime);
-        uint amountOut = pair.maxAmountOut();
-        if (amountOut > 0) {
-            uint amountIn = pair.computeExactAmountIn(amountOut);
-            assertLe(pair.estimateAmountOut(amountIn), amountOut);
-        }
-    }
-
     function testSwapMaxAmountOut(uint104 liquidity, uint32 waitingTime) public {
         vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
 

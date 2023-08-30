@@ -243,18 +243,6 @@ contract LiquidationPair is ILiquidationPair {
     return _computeExactAmountIn(_amountOut, eRate);
   }
 
-  /// @inheritdoc ILiquidationPair
-  function estimateAmountOut(uint256 __amountIn) external returns (uint256) {
-    _checkUpdateAuction();
-    return uint256(convert(ContinuousGDA.purchaseAmount(
-      convert(SafeCast.toInt256(__amountIn)),
-      _emissionRate,
-      _initialPrice,
-      decayConstant,
-      _getElapsedTime()
-    )));
-  }
-
   /// @notice Returns the total input tokens for the current auction.
   /// @return Total tokens in
   function amountInForPeriod() external returns (uint104) {
