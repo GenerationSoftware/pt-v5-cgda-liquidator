@@ -243,18 +243,6 @@ contract LiquidationPair is ILiquidationPair {
     return _computeExactAmountIn(_amountOut, eRate);
   }
 
-  /// @inheritdoc ILiquidationPair
-  function estimateAmountOut(uint256 __amountIn) external returns (uint256) {
-    _checkUpdateAuction();
-    return uint256(convert(ContinuousGDA.purchaseAmount(
-      convert(SafeCast.toInt256(__amountIn)),
-      _emissionRate,
-      _initialPrice,
-      decayConstant,
-      _getElapsedTime()
-    )));
-  }
-
   /// @notice Returns the total input tokens for the current auction.
   /// @return Total tokens in
   function amountInForPeriod() external returns (uint104) {
@@ -318,7 +306,7 @@ contract LiquidationPair is ILiquidationPair {
       _lastAuctionTime + 
       SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(eRate))));
 
-    source.transferTokensOut(
+    bytes memory transferTokensOutData = source.transferTokensOut(
       msg.sender,
       _receiver,
       tokenOut,
@@ -327,7 +315,6 @@ contract LiquidationPair is ILiquidationPair {
 
     if (_flashSwapData.length > 0) {
       IFlashSwapCallback(_receiver).flashSwapCallback(
-        address(this),
         msg.sender,
         swapAmountIn,
         _amountOut,
@@ -336,10 +323,9 @@ contract LiquidationPair is ILiquidationPair {
     }
 
     source.verifyTokensIn(
-      msg.sender,
-      _receiver,
       tokenIn,
-      swapAmountIn
+      swapAmountIn,
+      transferTokensOutData
     );
 
     emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn, _flashSwapData);

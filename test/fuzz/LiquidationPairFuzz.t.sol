@@ -44,16 +44,6 @@ contract LiquidationPairFuzzTest is Test {
         );
     }
 
-    function testEstimateAmountOut(uint104 liquidity, uint32 waitingTime) public {
-        vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
-        vm.warp(waitingTime);
-        uint amountOut = pair.maxAmountOut();
-        if (amountOut > 0) {
-            uint amountIn = pair.computeExactAmountIn(amountOut);
-            assertLe(pair.estimateAmountOut(amountIn), amountOut);
-        }
-    }
-
     function testSwapMaxAmountOut(uint104 liquidity, uint32 waitingTime) public {
         vm.mockCall(address(source), abi.encodeWithSelector(source.liquidatableBalanceOf.selector, tokenOut), abi.encode(liquidity));
 
@@ -62,8 +52,8 @@ contract LiquidationPairFuzzTest is Test {
         if (amountOut > 0) {
             uint amountIn = pair.computeExactAmountIn(amountOut);
             if (amountIn > 0) {
-                vm.mockCall(address(source), abi.encodeCall(source.transferTokensOut, (address(this), address(this), tokenOut, amountOut)), abi.encode());
-                vm.mockCall(address(source), abi.encodeCall(source.verifyTokensIn, (address(this), address(this), tokenIn, amountIn)), abi.encode());
+                vm.mockCall(address(source), abi.encodeCall(source.transferTokensOut, (address(this), address(this), tokenOut, amountOut)), abi.encode("somedata"));
+                vm.mockCall(address(source), abi.encodeCall(source.verifyTokensIn, (tokenIn, amountIn, "somedata")), abi.encode());
                 pair.swapExactAmountOut(address(this), amountOut, amountIn, "");
             }
         }
