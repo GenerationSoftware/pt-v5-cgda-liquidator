@@ -66,7 +66,7 @@ contract LiquidationRouterTest is Test {
 
     function testSwapExactAmountOut_happyPath() public {
         vm.warp(10 days);
-        address receiver = address(this);
+        address receiver = makeAddr("bob");
         uint256 amountOut = 1e18;
         uint256 amountIn = 1.5e18;
         uint256 amountInMax = 2e18;
@@ -106,7 +106,7 @@ contract LiquidationRouterTest is Test {
 
         router.swapExactAmountOut(
             liquidationPair,
-            address(this),
+            receiver,
             amountOut,
             amountInMax,
             deadline

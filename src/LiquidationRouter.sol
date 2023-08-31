@@ -85,7 +85,7 @@ contract LiquidationRouter is IFlashSwapCallback {
       revert SwapExpired(_deadline);
     }
 
-    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, abi.encode(_receiver));
+    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, abi.encode(msg.sender));
 
     IERC20(_liquidationPair.tokenOut()).safeTransfer(_receiver, _amountOut);
 
