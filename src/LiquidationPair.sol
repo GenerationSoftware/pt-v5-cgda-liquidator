@@ -421,8 +421,8 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @notice Updates the current auction to the given period
-  /// @param __period The period that the auction should be updated to
-  function _updateAuction(uint256 __period) internal {
+  /// @param period_ The period that the auction should be updated to
+  function _updateAuction(uint256 period_) internal {
     if (block.timestamp < firstPeriodStartsAt) {
       return;
     }
@@ -439,10 +439,10 @@ contract LiquidationPair is ILiquidationPair {
       cachedLastNonZeroAmountOut = _lastNonZeroAmountOut;
     }
     
-    _period = uint48(__period);
+    _period = uint48(period_);
     delete _amountInForPeriod;
     delete _amountOutForPeriod;
-    _lastAuctionTime = SafeCast.toUint48(firstPeriodStartsAt + periodLength * __period);
+    _lastAuctionTime = SafeCast.toUint48(firstPeriodStartsAt + periodLength * period_);
     uint256 auctionAmount = source.liquidatableBalanceOf(tokenOut);
     if (auctionAmount < minimumAuctionAmount) {
       // do not release funds if the minimum is not met
@@ -476,17 +476,17 @@ contract LiquidationPair is ILiquidationPair {
       cachedLastNonZeroAmountIn,
       cachedLastNonZeroAmountOut,
       _lastAuctionTime,
-      uint48(__period),
+      uint48(period_),
       emissionRate_,
       _initialPrice
     );
   }
 
   /// @notice Computes the start time of the given auction period
-  /// @param __period The auction period, in terms of number of periods since firstPeriodStartsAt
+  /// @param period_ The auction period, in terms of number of periods since firstPeriodStartsAt
   /// @return The start timestamp of the given period
-  function _getPeriodStart(uint256 __period) internal view returns (uint256) {
-    return firstPeriodStartsAt + __period * periodLength;
+  function _getPeriodStart(uint256 period_) internal view returns (uint256) {
+    return firstPeriodStartsAt + period_ * periodLength;
   }
 
   /// @notice Computes the current auction period
