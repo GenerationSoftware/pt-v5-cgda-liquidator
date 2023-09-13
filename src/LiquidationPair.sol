@@ -131,7 +131,7 @@ contract LiquidationPair is ILiquidationPair {
   /// @notice The last non-zero total tokens out for an auction.  This is used to configure the target price for the next auction.
   uint104 internal _lastNonZeroAmountOut;
 
-  /// @notice The current auction period. Note that this number can wrap.
+  /// @notice The current auction period.
   uint48 internal _period;
 
   /// @notice The total tokens in for the current auction.
