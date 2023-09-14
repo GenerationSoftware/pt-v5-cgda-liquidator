@@ -18,7 +18,7 @@ PoolTogether V5 uses the CGDA liquidator to sell yield for POOL tokens and contr
 
 ## LiquidationPair
 
-The LiquidationPair sells one token for another using a periodic continuous gradual dutch auction.  The pair does not hold liquidity, but rather prices liquidity held by a ILiquidationSource.  The Liquidation Source makes liquidity available to the pair, which facilitates swaps.
+The LiquidationPair sells one token for another using a periodic continuous gradual dutch auction. The pair does not hold liquidity, but rather prices liquidity held by a ILiquidationSource. The Liquidation Source makes liquidity available to the pair, which facilitates swaps.
 
 A continuous gradual dutch auction is an algorithm that:
 
@@ -30,7 +30,7 @@ What you get, in a sense, is that a CGDA auction will drop the price until purch
 
 For more information read the origina Paradigm article on [Gradual Dutch Auctions](https://www.paradigm.xyz/2022/04/gda).
 
-The LiquidationPair is *periodic*, in the sense that it runs a sequence of CGDAs. At the start of each auction period, the LiquidationPair will adjust the target price and emissions rate so that the available liquidity can be sold as efficiently as possible.
+The LiquidationPair is _periodic_, in the sense that it runs a sequence of CGDAs. At the start of each auction period, the LiquidationPair will adjust the target price and emissions rate so that the available liquidity can be sold as efficiently as possible.
 
 <strong>Have questions or want the latest news?</strong>
 <br/>Join the PoolTogether Discord or follow us on Twitter:
@@ -53,7 +53,6 @@ Install dependencies:
 ```
 npm i
 ```
-
 
 ## Derivations
 
@@ -94,4 +93,3 @@ $$ p = \frac{k}{l}\cdot\frac{\left(e^{\frac{lq}{r}}-1\right)}{e^{lt}} $$
 $$ l\cdot p\cdot e^{lt} = k\cdot\left(e^{\frac{lq}{r}}-1\right) $$
 
 $$ \frac{l\cdot p\cdot e^{lt}}{(e^{\frac{lq}{r}}-1)} = k $$
-

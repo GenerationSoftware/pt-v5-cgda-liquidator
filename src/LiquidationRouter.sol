@@ -57,7 +57,7 @@ contract LiquidationRouter is IFlashSwapCallback {
   /// @notice Constructs a new LiquidationRouter
   /// @param liquidationPairFactory_ The factory that pairs will be verified to have been created by
   constructor(LiquidationPairFactory liquidationPairFactory_) {
-    if(address(liquidationPairFactory_) == address(0)) {
+    if (address(liquidationPairFactory_) == address(0)) {
       revert UndefinedLiquidationPairFactory();
     }
     _liquidationPairFactory = liquidationPairFactory_;
@@ -85,11 +85,24 @@ contract LiquidationRouter is IFlashSwapCallback {
       revert SwapExpired(_deadline);
     }
 
-    uint256 amountIn = _liquidationPair.swapExactAmountOut(address(this), _amountOut, _amountInMax, abi.encode(msg.sender));
+    uint256 amountIn = _liquidationPair.swapExactAmountOut(
+      address(this),
+      _amountOut,
+      _amountInMax,
+      abi.encode(msg.sender)
+    );
 
     IERC20(_liquidationPair.tokenOut()).safeTransfer(_receiver, _amountOut);
 
-    emit SwappedExactAmountOut(_liquidationPair, msg.sender, _receiver, _amountOut, _amountInMax, amountIn, _deadline);
+    emit SwappedExactAmountOut(
+      _liquidationPair,
+      msg.sender,
+      _receiver,
+      _amountOut,
+      _amountInMax,
+      amountIn,
+      _deadline
+    );
 
     return amountIn;
   }
@@ -100,7 +113,7 @@ contract LiquidationRouter is IFlashSwapCallback {
     uint256 _amountIn,
     uint256,
     bytes calldata _flashSwapData
-  ) external onlyTrustedLiquidationPair(LiquidationPair(msg.sender)) onlySelf(_sender) override {
+  ) external override onlyTrustedLiquidationPair(LiquidationPair(msg.sender)) onlySelf(_sender) {
     address _originalSender = abi.decode(_flashSwapData, (address));
     IERC20(LiquidationPair(msg.sender).tokenIn()).safeTransferFrom(
       _originalSender,

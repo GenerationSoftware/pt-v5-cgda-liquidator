@@ -55,7 +55,9 @@ library ContinuousGDA {
     SD59x18 _price
   ) internal pure returns (SD59x18) {
     SD59x18 topE = _decayConstant.mul(_targetFirstSaleTime).safeExp();
-    SD59x18 denominator = (_decayConstant.mul(_purchaseAmount).div(_emissionRate)).safeExp().sub(ONE);
+    SD59x18 denominator = (_decayConstant.mul(_purchaseAmount).div(_emissionRate)).safeExp().sub(
+      ONE
+    );
     SD59x18 result = topE.div(denominator);
     SD59x18 multiplier = _decayConstant.mul(_price);
     return result.mul(multiplier);

@@ -5,7 +5,6 @@ import { ContinuousGDA, SD59x18 } from "../../../src/libraries/ContinuousGDA.sol
 
 // NOTE: taken from https://github.com/FrankieIsLost/gradual-dutch-auction/blob/master/src/ContinuousGDA.sol
 contract ContinuousGDAWrapper {
-
   ///@notice calculate price to purchased _numTokens using exponential continuous GDA formula
   function purchasePrice(
     SD59x18 _amount,
@@ -19,7 +18,8 @@ contract ContinuousGDAWrapper {
       _emissionRate,
       _initialPrice,
       _decayConstant,
-      _timeSinceLastAuctionStart);
+      _timeSinceLastAuctionStart
+    );
     return result;
   }
 

@@ -56,8 +56,6 @@ contract LiquidationPairFactoryTest is Test {
   /* ============ createPair ============ */
 
   function testCreatePair() public {
-
-
     vm.expectEmit(false, false, false, true);
     emit PairCreated(
       LiquidationPair(0x0000000000000000000000000000000000000000),
@@ -114,5 +112,4 @@ contract LiquidationPairFactoryTest is Test {
       abi.encode(amount)
     );
   }
-
 }
