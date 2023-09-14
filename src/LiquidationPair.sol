@@ -508,6 +508,7 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @notice Computes the start time of the given auction period
+  /// @dev `period_` must be at least 1, since this is the first active period.
   /// @param period_ The auction period, in terms of number of periods since firstPeriodStartsAt
   /// @return The start timestamp of the given period
   function _getPeriodStart(uint256 period_) internal view returns (uint256) {
@@ -515,6 +516,8 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @notice Computes the current auction period
+  /// @dev This will return `0` if the current time is before `firstPeriodStartsAt`.
+  /// @dev The first active auction period is `1`. (i.e. when the timestamp is at `firstPeriodStartsAt`, this function will return `1`)
   /// @return the current period
   function _computePeriod() internal view returns (uint256) {
     if (block.timestamp < firstPeriodStartsAt) {
