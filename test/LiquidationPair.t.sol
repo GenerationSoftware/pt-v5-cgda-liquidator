@@ -7,24 +7,9 @@ import { SD59x18, wrap, convert, unwrap } from "prb-math/SD59x18.sol";
 import { ILiquidationSource } from "pt-v5-liquidator-interfaces/ILiquidationSource.sol";
 import { IFlashSwapCallback } from "pt-v5-liquidator-interfaces/IFlashSwapCallback.sol";
 
-import {
-  LiquidationPair,
-  AmountInZero,
-  AmountOutZero,
-  TargetFirstSaleTimeGePeriodLength,
-  SwapExceedsAvailable,
-  DecayConstantTooLarge,
-  PurchasePriceIsZero,
-  SwapExceedsMax,
-  LiquidationSourceZeroAddress,
-  TokenInZeroAddress,
-  ReceiverIsZero,
-  EmissionRateIsZero,
-  TokenOutZeroAddress
-} from "../src/LiquidationPair.sol";
+import { LiquidationPair, AmountInZero, AmountOutZero, TargetFirstSaleTimeGePeriodLength, SwapExceedsAvailable, DecayConstantTooLarge, PurchasePriceIsZero, SwapExceedsMax, LiquidationSourceZeroAddress, TokenInZeroAddress, ReceiverIsZero, EmissionRateIsZero, TokenOutZeroAddress } from "../src/LiquidationPair.sol";
 
 contract LiquidationPairTest is Test {
-  
   /* ============ Variables ============ */
 
   address public alice;
@@ -115,7 +100,13 @@ contract LiquidationPairTest is Test {
 
   function testConstructor_maxDecayConstant() public {
     decayConstant = wrap(0.01e18);
-    vm.expectRevert(abi.encodeWithSelector(DecayConstantTooLarge.selector, wrap(1540327067910989), wrap(10000000000000000)));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        DecayConstantTooLarge.selector,
+        wrap(1540327067910989),
+        wrap(10000000000000000)
+      )
+    );
     pair = newPair();
   }
 
@@ -222,7 +213,7 @@ contract LiquidationPairTest is Test {
       initialAmountIn,
       initialAmountOut,
       uint48(firstPeriodStartsAt),
-      0,
+      1,
       wrap(1000000000000000000000000000000000000),
       wrap(43200000000000000000000000000000000000)
     );
@@ -241,7 +232,11 @@ contract LiquidationPairTest is Test {
   }
 
   function testTarget() public {
-    vm.mockCall(address(source), abi.encodeWithSelector(source.targetOf.selector, tokenIn), abi.encode(target));
+    vm.mockCall(
+      address(source),
+      abi.encodeWithSelector(source.targetOf.selector, tokenIn),
+      abi.encode(target)
+    );
     assertEq(pair.target(), target);
   }
 
@@ -359,8 +354,10 @@ contract LiquidationPairTest is Test {
     mockLiquidatableBalanceOf(amountAvailable);
     vm.warp(firstPeriodStartsAt + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
-    vm.expectRevert(abi.encodeWithSelector(SwapExceedsAvailable.selector, amountOut*2, amountOut));
-    pair.computeExactAmountIn(amountOut*2);
+    vm.expectRevert(
+      abi.encodeWithSelector(SwapExceedsAvailable.selector, amountOut * 2, amountOut)
+    );
+    pair.computeExactAmountIn(amountOut * 2);
   }
 
   function testComputeExactAmountIn_jumpToFutureWithNoLiquidity() public {
@@ -370,8 +367,8 @@ contract LiquidationPairTest is Test {
     emit StartedAuction(
       initialAmountIn,
       initialAmountOut,
-      uint48(firstPeriodStartsAt + periodLength*2),
-      2,
+      uint48(firstPeriodStartsAt + periodLength * 2),
+      3,
       wrap(0),
       wrap(0)
     );
@@ -384,7 +381,12 @@ contract LiquidationPairTest is Test {
     vm.warp(firstPeriodStartsAt * 3 + targetFirstSaleTime);
     uint amountOut = pair.maxAmountOut();
     assertGt(amountOut, 0);
-    assertApproxEqAbs(pair.computeExactAmountIn(amountOut), amountOut, 3e14, "equal at target sale time");
+    assertApproxEqAbs(
+      pair.computeExactAmountIn(amountOut),
+      amountOut,
+      3e14,
+      "equal at target sale time"
+    );
   }
 
   /**
@@ -421,7 +423,12 @@ contract LiquidationPairTest is Test {
 
     SD59x18 laterExchangeRate = convert(int(laterAmountOut)).div(convert(int(laterAmountIn)));
 
-    assertApproxEqAbs(exchangeRate.unwrap(), laterExchangeRate.unwrap(), 4e14, "exchange rate has been updated");
+    assertApproxEqAbs(
+      exchangeRate.unwrap(),
+      laterExchangeRate.unwrap(),
+      4e14,
+      "exchange rate has been updated"
+    );
   }
 
   /* ============ swapExactAmountOut ============ */
@@ -449,7 +456,10 @@ contract LiquidationPairTest is Test {
     pair = newPair();
     mockLiquidatableBalanceOf(type(uint256).max);
     vm.warp(firstPeriodStartsAt + periodLength);
-    assertEq(pair.emissionRate().unwrap(), convert(int(uint(type(uint192).max))).div(convert(int(periodLength))).unwrap());
+    assertEq(
+      pair.emissionRate().unwrap(),
+      convert(int(uint(type(uint192).max))).div(convert(int(periodLength))).unwrap()
+    );
   }
 
   function testInitialPrice() public {
@@ -491,7 +501,11 @@ contract LiquidationPairTest is Test {
 
     assertEq(pair.amountInForPeriod(), amountIn, "amount in was increased");
     assertEq(pair.amountOutForPeriod(), amountOut, "amount out was increased");
-    assertEq(pair.lastAuctionTime(), firstPeriodStartsAt + targetFirstSaleTime - 1, "last auction increased to target time (less loss of precision)");
+    assertEq(
+      pair.lastAuctionTime(),
+      firstPeriodStartsAt + targetFirstSaleTime - 1,
+      "last auction increased to target time (less loss of precision)"
+    );
 
     vm.warp(firstPeriodStartsAt + periodLength);
 
@@ -510,8 +524,15 @@ contract LiquidationPairTest is Test {
     mockLiquidatableBalanceOf(amountAvailable);
     mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut);
 
-    vm.mockCall(alice, abi.encodeCall(IFlashSwapCallback.flashSwapCallback, (address(this), amountIn, amountOut, "hello")), abi.encode());
-    
+    vm.mockCall(
+      alice,
+      abi.encodeCall(
+        IFlashSwapCallback.flashSwapCallback,
+        (address(this), amountIn, amountOut, "hello")
+      ),
+      abi.encode()
+    );
+
     vm.expectEmit(true, true, true, true);
     emit SwappedExactAmountOut(address(this), alice, amountOut, amountOut, amountIn, "hello");
     pair.swapExactAmountOut(alice, amountOut, amountOut, "hello");
@@ -538,7 +559,7 @@ contract LiquidationPairTest is Test {
     uint amountOut = pair.maxAmountOut();
     uint amountIn = pair.computeExactAmountIn(amountOut);
     mockLiquidatableBalanceOf(amountAvailable);
-    uint maxAmountIn = amountOut/2; // assume it's almost 1:1 exchange rate
+    uint maxAmountIn = amountOut / 2; // assume it's almost 1:1 exchange rate
     vm.expectRevert(abi.encodeWithSelector(SwapExceedsMax.selector, maxAmountIn, amountIn));
     pair.swapExactAmountOut(alice, amountOut, maxAmountIn, "");
   }
@@ -547,6 +568,38 @@ contract LiquidationPairTest is Test {
     amountIn = pair.computeExactAmountIn(amountOut);
     mockLiquidate(address(source), alice, tokenIn, amountIn, tokenOut, amountOut);
     assertEq(amountIn, pair.swapExactAmountOut(alice, amountOut, type(uint256).max, ""));
+  }
+
+  /**
+   * Regression test to see if an LP is properly initializes (and an auction is started)
+   * if it is set to start some time in the future.
+   */
+  function testAuctionStartsAtFutureFirstPeriod() public {
+    // warp to before the period starts
+    vm.warp(firstPeriodStartsAt - 1);
+
+    LiquidationPair preInitPair = newPair();
+
+    assertEq(preInitPair.getPeriodStart(), firstPeriodStartsAt);
+    assertEq(preInitPair.getPeriodEnd(), firstPeriodStartsAt + periodLength);
+    assertEq(preInitPair.emissionRate().unwrap(), 0); // ensure auction has not started
+
+    // warp to period start
+    vm.warp(firstPeriodStartsAt);
+
+    mockLiquidatableBalanceOf(1e18 * 86400);
+    vm.expectEmit(true, true, true, true);
+    emit StartedAuction(
+      initialAmountIn,
+      initialAmountOut,
+      uint48(firstPeriodStartsAt),
+      1,
+      wrap(1000000000000000000000000000000000000),
+      wrap(43200000000000000000000000000000000000)
+    );
+    assertEq(preInitPair.getPeriodStart(), firstPeriodStartsAt);
+    assertEq(preInitPair.getPeriodEnd(), firstPeriodStartsAt + periodLength);
+    assertGt(preInitPair.emissionRate().unwrap(), 0); // auction started, emissions > 0
   }
 
   /* ============ Mocks ============ */
@@ -571,41 +624,30 @@ contract LiquidationPairTest is Test {
       _source,
       abi.encodeCall(
         ILiquidationSource.transferTokensOut,
-        (
-          address(this),
-          _user,
-          _tokenOut,
-          _amountOut
-        )
+        (address(this), _user, _tokenOut, _amountOut)
       ),
       abi.encode("hello")
     );
     vm.mockCall(
       _source,
-      abi.encodeCall(
-        ILiquidationSource.verifyTokensIn,
-          (
-            _tokenIn,
-            _amountIn,
-            "hello"
-          )
-        ),
-        abi.encode()
+      abi.encodeCall(ILiquidationSource.verifyTokensIn, (_tokenIn, _amountIn, "hello")),
+      abi.encode()
     );
   }
 
   function newPair() public returns (LiquidationPair) {
-    return new LiquidationPair(
-      source,
-      tokenIn,
-      tokenOut,
-      uint32(periodLength),
-      uint32(firstPeriodStartsAt),
-      targetFirstSaleTime,
-      decayConstant,
-      initialAmountIn,
-      initialAmountOut,
-      minimumAuctionAmount
-    );
+    return
+      new LiquidationPair(
+        source,
+        tokenIn,
+        tokenOut,
+        uint32(periodLength),
+        uint32(firstPeriodStartsAt),
+        targetFirstSaleTime,
+        decayConstant,
+        initialAmountIn,
+        initialAmountOut,
+        minimumAuctionAmount
+      );
   }
 }

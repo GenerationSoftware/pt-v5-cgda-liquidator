@@ -61,7 +61,6 @@ uint256 constant UINT192_MAX = type(uint192).max;
  * @dev This contract is designed to be used with the LiquidationRouter contract.
  */
 contract LiquidationPair is ILiquidationPair {
-
   /* ============ Events ============ */
 
   /// @notice Emitted when a new auction is started
@@ -206,7 +205,7 @@ contract LiquidationPair is ILiquidationPair {
     _lastNonZeroAmountOut = _initialAmountOut;
     minimumAuctionAmount = _minimumAuctionAmount;
 
-    _updateAuction(0);
+    _checkUpdateAuction();
   }
 
   /* ============ External Read Methods ============ */
@@ -302,9 +301,11 @@ contract LiquidationPair is ILiquidationPair {
     }
     _amountInForPeriod = _amountInForPeriod + SafeCast.toUint104(swapAmountIn);
     _amountOutForPeriod = _amountOutForPeriod + SafeCast.toUint104(_amountOut);
-    _lastAuctionTime = 
-      _lastAuctionTime + 
-      SafeCast.toUint48(SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(eRate))));
+    _lastAuctionTime =
+      _lastAuctionTime +
+      SafeCast.toUint48(
+        SafeCast.toUint256(convert(convert(SafeCast.toInt256(_amountOut)).div(eRate)))
+      );
 
     bytes memory transferTokensOutData = source.transferTokensOut(
       msg.sender,
@@ -322,13 +323,16 @@ contract LiquidationPair is ILiquidationPair {
       );
     }
 
-    source.verifyTokensIn(
-      tokenIn,
-      swapAmountIn,
-      transferTokensOutData
-    );
+    source.verifyTokensIn(tokenIn, swapAmountIn, transferTokensOutData);
 
-    emit SwappedExactAmountOut(msg.sender, _receiver, _amountOut, _amountInMax, swapAmountIn, _flashSwapData);
+    emit SwappedExactAmountOut(
+      msg.sender,
+      _receiver,
+      _amountOut,
+      _amountInMax,
+      swapAmountIn,
+      _flashSwapData
+    );
 
     return swapAmountIn;
   }
@@ -340,17 +344,22 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @notice Returns the current auction start time
+  /// @dev If the first period has not started yet, this will return the first period start time.
   /// @return The start timestamp
   function getPeriodStart() external returns (uint256) {
     _checkUpdateAuction();
-    return _getPeriodStart(_computePeriod());
+    uint256 currentPeriod = _computePeriod();
+    return currentPeriod == 0 ? firstPeriodStartsAt : _getPeriodStart(currentPeriod);
   }
 
   /// @notice Returns the current auction end time
+  /// @dev If the first period has not started yet, this will return the first period end time.
   /// @return The end timestamp
   function getPeriodEnd() external returns (uint256) {
     _checkUpdateAuction();
-    return _getPeriodStart(_computePeriod()) + periodLength;
+    uint256 currentPeriod = _computePeriod();
+    return
+      (currentPeriod == 0 ? firstPeriodStartsAt : _getPeriodStart(currentPeriod)) + periodLength;
   }
 
   /// @notice Returns the last non-zero auction total input tokens
@@ -381,18 +390,23 @@ contract LiquidationPair is ILiquidationPair {
   /// @return The elapsed time
   function _getElapsedTime() internal view returns (SD59x18) {
     uint48 cachedLastAuctionTime = _lastAuctionTime;
-    if (block.timestamp < cachedLastAuctionTime) {
+    if (block.timestamp < cachedLastAuctionTime || block.timestamp < firstPeriodStartsAt) {
       return wrap(0);
     }
     return (
-      convert(SafeCast.toInt256(block.timestamp)).sub(convert(SafeCast.toInt256(cachedLastAuctionTime)))
+      convert(SafeCast.toInt256(block.timestamp)).sub(
+        convert(SafeCast.toInt256(cachedLastAuctionTime))
+      )
     );
   }
 
   /// @notice Computes the exact amount of input tokens required to purchase the given amount of output tokens
   /// @param _amountOut The number of output tokens desired
   /// @return The number of input tokens needed
-  function _computeExactAmountIn(uint256 _amountOut, SD59x18 emissionRate_) internal returns (uint256) {
+  function _computeExactAmountIn(
+    uint256 _amountOut,
+    SD59x18 emissionRate_
+  ) internal returns (uint256) {
     if (_amountOut == 0) {
       return 0;
     }
@@ -401,13 +415,19 @@ contract LiquidationPair is ILiquidationPair {
       revert SwapExceedsAvailable(_amountOut, maxOut);
     }
     SD59x18 elapsed = _getElapsedTime();
-    uint256 purchasePrice = SafeCast.toUint256(convert(ContinuousGDA.purchasePrice(
-        convert(SafeCast.toInt256(_amountOut)),
-        emissionRate_,
-        _initialPrice,
-        decayConstant,
-        elapsed
-      ).ceil()));
+    uint256 purchasePrice = SafeCast.toUint256(
+      convert(
+        ContinuousGDA
+          .purchasePrice(
+            convert(SafeCast.toInt256(_amountOut)),
+            emissionRate_,
+            _initialPrice,
+            decayConstant,
+            elapsed
+          )
+          .ceil()
+      )
+    );
 
     return purchasePrice;
   }
@@ -421,9 +441,10 @@ contract LiquidationPair is ILiquidationPair {
   }
 
   /// @notice Updates the current auction to the given period
+  /// @dev Does not update if period_ is less than 1.
   /// @param period_ The period that the auction should be updated to
   function _updateAuction(uint256 period_) internal {
-    if (block.timestamp < firstPeriodStartsAt) {
+    if (period_ == 0) {
       return;
     }
     uint104 cachedLastNonZeroAmountIn;
@@ -438,11 +459,14 @@ contract LiquidationPair is ILiquidationPair {
       cachedLastNonZeroAmountIn = _lastNonZeroAmountIn;
       cachedLastNonZeroAmountOut = _lastNonZeroAmountOut;
     }
-    
+
     _period = uint48(period_);
     delete _amountInForPeriod;
     delete _amountOutForPeriod;
-    _lastAuctionTime = SafeCast.toUint48(firstPeriodStartsAt + periodLength * period_);
+
+    uint48 lastAuctionTime_ = SafeCast.toUint48(_getPeriodStart(period_)); // cache the value in memory for use later
+    _lastAuctionTime = lastAuctionTime_;
+
     uint256 auctionAmount = source.liquidatableBalanceOf(tokenOut);
     if (auctionAmount < minimumAuctionAmount) {
       // do not release funds if the minimum is not met
@@ -450,16 +474,17 @@ contract LiquidationPair is ILiquidationPair {
     } else if (auctionAmount > UINT192_MAX) {
       auctionAmount = UINT192_MAX;
     }
-    SD59x18 emissionRate_ = convert(SafeCast.toInt256(auctionAmount)).div(convert(SafeCast.toInt32(SafeCast.toInt256(periodLength))));
+    SD59x18 emissionRate_ = convert(SafeCast.toInt256(auctionAmount)).div(
+      convert(SafeCast.toInt32(SafeCast.toInt256(periodLength)))
+    );
     _emissionRate = emissionRate_;
     if (emissionRate_.unwrap() != 0) {
       // compute k
       SD59x18 timeSinceLastAuctionStart = convert(SafeCast.toInt256(uint256(targetFirstSaleTime)));
       SD59x18 purchaseAmount = timeSinceLastAuctionStart.mul(emissionRate_);
-      SD59x18 exchangeRateAmountInToAmountOut = 
-        convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountIn))).div(
-          convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountOut)))
-        );
+      SD59x18 exchangeRateAmountInToAmountOut = convert(
+        SafeCast.toInt256(uint256(cachedLastNonZeroAmountIn))
+      ).div(convert(SafeCast.toInt256(uint256(cachedLastNonZeroAmountOut))));
       SD59x18 price = exchangeRateAmountInToAmountOut.mul(purchaseAmount);
       _initialPrice = ContinuousGDA.computeK(
         emissionRate_,
@@ -475,7 +500,7 @@ contract LiquidationPair is ILiquidationPair {
     emit StartedAuction(
       cachedLastNonZeroAmountIn,
       cachedLastNonZeroAmountOut,
-      _lastAuctionTime,
+      lastAuctionTime_,
       uint48(period_),
       emissionRate_,
       _initialPrice
@@ -486,7 +511,7 @@ contract LiquidationPair is ILiquidationPair {
   /// @param period_ The auction period, in terms of number of periods since firstPeriodStartsAt
   /// @return The start timestamp of the given period
   function _getPeriodStart(uint256 period_) internal view returns (uint256) {
-    return firstPeriodStartsAt + period_ * periodLength;
+    return firstPeriodStartsAt + (period_ - 1) * periodLength;
   }
 
   /// @notice Computes the current auction period
@@ -495,6 +520,6 @@ contract LiquidationPair is ILiquidationPair {
     if (block.timestamp < firstPeriodStartsAt) {
       return 0;
     }
-    return (block.timestamp - firstPeriodStartsAt) / periodLength;
+    return 1 + (block.timestamp - firstPeriodStartsAt) / periodLength;
   }
 }
