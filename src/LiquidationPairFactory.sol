@@ -8,7 +8,6 @@ import { ILiquidationSource, LiquidationPair, SD59x18 } from "./LiquidationPair.
 /// @author G9 Software Inc.
 /// @notice Factory contract for deploying LiquidationPair contracts.
 contract LiquidationPairFactory {
-
   /* ============ Events ============ */
 
   /// @notice Emitted when a new LiquidationPair is created

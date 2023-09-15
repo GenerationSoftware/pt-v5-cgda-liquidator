@@ -9,146 +9,158 @@ import { SafeERC20 } from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 import { LiquidationPairFactory } from "../src/LiquidationPairFactory.sol";
 import { LiquidationPair } from "../src/LiquidationPair.sol";
 
-import {
-    UnknownLiquidationPair,
-    UndefinedLiquidationPairFactory,
-    SwapExpired,
-    InvalidSender,
-    LiquidationRouter
-} from "../src/LiquidationRouter.sol";
+import { UnknownLiquidationPair, UndefinedLiquidationPairFactory, SwapExpired, InvalidSender, LiquidationRouter } from "../src/LiquidationRouter.sol";
 
 contract LiquidationRouterTest is Test {
-    using SafeERC20 for IERC20;
+  using SafeERC20 for IERC20;
 
-    IERC20 tokenIn;
-    IERC20 tokenOut;
-    address target;
-    LiquidationPairFactory factory;
-    LiquidationPair liquidationPair;
+  IERC20 tokenIn;
+  IERC20 tokenOut;
+  address target;
+  LiquidationPairFactory factory;
+  LiquidationPair liquidationPair;
 
-    LiquidationRouter router;
+  LiquidationRouter router;
 
-    event LiquidationRouterCreated(LiquidationPairFactory indexed liquidationPairFactory);
-    event SwappedExactAmountOut(
-        LiquidationPair indexed liquidationPair,
-        address indexed sender,
-        address indexed receiver,
-        uint256 amountOut,
-        uint256 amountInMax,
-        uint256 amountIn,
-        uint256 deadline
+  event LiquidationRouterCreated(LiquidationPairFactory indexed liquidationPairFactory);
+  event SwappedExactAmountOut(
+    LiquidationPair indexed liquidationPair,
+    address indexed sender,
+    address indexed receiver,
+    uint256 amountOut,
+    uint256 amountInMax,
+    uint256 amountIn,
+    uint256 deadline
+  );
+
+  function setUp() public {
+    factory = LiquidationPairFactory(makeAddr("LiquidationPairFactory"));
+    vm.etch(address(factory), "LiquidationPairFactory");
+
+    tokenIn = IERC20(makeAddr("tokenIn"));
+    vm.etch(address(tokenIn), "tokenIn");
+    tokenOut = IERC20(makeAddr("tokenOut"));
+    vm.etch(address(tokenOut), "tokenOut");
+
+    liquidationPair = LiquidationPair(makeAddr("LiquidationPair"));
+    vm.etch(address(liquidationPair), "LiquidationPair");
+
+    vm.mockCall(
+      address(liquidationPair),
+      abi.encodeCall(liquidationPair.tokenIn, ()),
+      abi.encode(tokenIn)
+    );
+    vm.mockCall(
+      address(liquidationPair),
+      abi.encodeCall(liquidationPair.tokenOut, ()),
+      abi.encode(tokenOut)
+    );
+    vm.mockCall(
+      address(liquidationPair),
+      abi.encodeCall(liquidationPair.target, ()),
+      abi.encode(target)
+    );
+    vm.mockCall(
+      address(factory),
+      abi.encodeCall(factory.deployedPairs, liquidationPair),
+      abi.encode(true)
     );
 
-    function setUp() public {
-        factory = LiquidationPairFactory(makeAddr("LiquidationPairFactory"));
-        vm.etch(address(factory), "LiquidationPairFactory");
+    router = new LiquidationRouter(factory);
+  }
 
-        tokenIn = IERC20(makeAddr("tokenIn"));
-        vm.etch(address(tokenIn), "tokenIn");
-        tokenOut = IERC20(makeAddr("tokenOut"));
-        vm.etch(address(tokenOut), "tokenOut");
+  function testConstructor_badFactory() public {
+    vm.expectRevert(abi.encodeWithSelector(UndefinedLiquidationPairFactory.selector));
+    new LiquidationRouter(LiquidationPairFactory(address(0)));
+  }
 
-        liquidationPair = LiquidationPair(makeAddr("LiquidationPair"));
-        vm.etch(address(liquidationPair), "LiquidationPair");
+  function testSwapExactAmountOut_happyPath() public {
+    vm.warp(10 days);
+    address receiver = makeAddr("bob");
+    uint256 amountOut = 1e18;
+    uint256 amountIn = 1.5e18;
+    uint256 amountInMax = 2e18;
+    uint256 deadline = block.timestamp;
 
-        vm.mockCall(address(liquidationPair), abi.encodeCall(liquidationPair.tokenIn, ()), abi.encode(tokenIn));
-        vm.mockCall(address(liquidationPair), abi.encodeCall(liquidationPair.tokenOut, ()), abi.encode(tokenOut));
-        vm.mockCall(address(liquidationPair), abi.encodeCall(liquidationPair.target, ()), abi.encode(target));
-        vm.mockCall(address(factory), abi.encodeCall(factory.deployedPairs, liquidationPair), abi.encode(true));
+    vm.mockCall(
+      address(liquidationPair),
+      abi.encodeCall(liquidationPair.computeExactAmountIn, (amountOut)),
+      abi.encode(amountIn)
+    );
+    vm.mockCall(
+      address(tokenIn),
+      abi.encodeCall(tokenIn.transferFrom, (address(this), target, amountIn)),
+      abi.encode(true)
+    );
+    vm.mockCall(
+      address(tokenOut),
+      abi.encodeCall(tokenOut.transfer, (address(this), amountOut)),
+      abi.encode(true)
+    );
+    vm.mockCall(
+      address(liquidationPair),
+      abi.encodeCall(
+        liquidationPair.swapExactAmountOut,
+        (address(router), amountOut, amountInMax, abi.encode(address(this)))
+      ),
+      abi.encode(amountIn)
+    );
 
-        router = new LiquidationRouter(factory);
-    }
+    vm.expectEmit(true, true, false, true);
+    emit SwappedExactAmountOut(
+      liquidationPair,
+      address(this),
+      receiver,
+      amountOut,
+      amountInMax,
+      amountIn,
+      deadline
+    );
 
-    function testConstructor_badFactory() public {
-        vm.expectRevert(abi.encodeWithSelector(UndefinedLiquidationPairFactory.selector));
-        new LiquidationRouter(LiquidationPairFactory(address(0)));
-    }
+    router.swapExactAmountOut(liquidationPair, receiver, amountOut, amountInMax, deadline);
+  }
 
-    function testSwapExactAmountOut_happyPath() public {
-        vm.warp(10 days);
-        address receiver = makeAddr("bob");
-        uint256 amountOut = 1e18;
-        uint256 amountIn = 1.5e18;
-        uint256 amountInMax = 2e18;
-        uint256 deadline = block.timestamp;
+  function testFlashSwapCallback_InvalidSender() public {
+    vm.expectRevert(abi.encodeWithSelector(InvalidSender.selector, address(this)));
+    vm.startPrank(address(liquidationPair));
+    router.flashSwapCallback(address(this), 0, 0, abi.encode(address(this)));
+    vm.stopPrank();
+  }
 
-        vm.mockCall(
-            address(liquidationPair),
-            abi.encodeCall(liquidationPair.computeExactAmountIn, (amountOut)),
-            abi.encode(amountIn)
-        );
-        vm.mockCall(
-            address(tokenIn),
-            abi.encodeCall(tokenIn.transferFrom, (address(this), target, amountIn)),
-            abi.encode(true)
-        );
-        vm.mockCall(
-            address(tokenOut),
-            abi.encodeCall(tokenOut.transfer, (address(this), amountOut)),
-            abi.encode(true)
-        );
-        vm.mockCall(
-            address(liquidationPair),
-            abi.encodeCall(liquidationPair.swapExactAmountOut, (address(router), amountOut, amountInMax, abi.encode(address(this)))),
-            abi.encode(amountIn)
-        );
+  function testFlashSwapCallback_UnknownLiquidationPair() public {
+    vm.mockCall(
+      address(factory),
+      abi.encodeCall(factory.deployedPairs, LiquidationPair(address(this))),
+      abi.encode(false)
+    );
+    vm.expectRevert(abi.encodeWithSelector(UnknownLiquidationPair.selector, address(this)));
+    router.flashSwapCallback(address(this), 0, 0, abi.encode(address(this)));
+  }
 
-        vm.expectEmit(true, true, false, true);
-        emit SwappedExactAmountOut(
-            liquidationPair,
-            address(this),
-            receiver,
-            amountOut,
-            amountInMax,
-            amountIn,
-            deadline
-        );
+  function testFlashSwapCallback_success() public {
+    vm.mockCall(
+      address(tokenIn),
+      abi.encodeCall(tokenIn.transferFrom, (address(this), target, 11e18)),
+      abi.encode(true)
+    );
+    vm.startPrank(address(liquidationPair));
+    router.flashSwapCallback(address(router), 11e18, 0, abi.encode(address(this)));
+    vm.stopPrank();
+  }
 
-        router.swapExactAmountOut(
-            liquidationPair,
-            receiver,
-            amountOut,
-            amountInMax,
-            deadline
-        );
-    }
+  function testSwapExactAmountOut_SwapExpired() public {
+    vm.warp(10 days);
+    vm.expectRevert(abi.encodeWithSelector(SwapExpired.selector, 10 days - 1));
+    router.swapExactAmountOut(liquidationPair, makeAddr("alice"), 1e18, 1e18, 10 days - 1);
+  }
 
-    function testFlashSwapCallback_InvalidSender() public {
-        vm.expectRevert(abi.encodeWithSelector(InvalidSender.selector, address(this)));
-        vm.startPrank(address(liquidationPair));
-        router.flashSwapCallback(address(this), 0, 0, abi.encode(address(this)));
-        vm.stopPrank();
-    }
-
-    function testFlashSwapCallback_UnknownLiquidationPair() public {
-        vm.mockCall(address(factory), abi.encodeCall(factory.deployedPairs, LiquidationPair(address(this))), abi.encode(false));
-        vm.expectRevert(abi.encodeWithSelector(UnknownLiquidationPair.selector, address(this)));
-        router.flashSwapCallback(address(this), 0, 0, abi.encode(address(this)));
-    }
-
-    function testFlashSwapCallback_success() public {
-        vm.mockCall(address(tokenIn), abi.encodeCall(tokenIn.transferFrom, (address(this), target, 11e18)), abi.encode(true));
-        vm.startPrank(address(liquidationPair));
-        router.flashSwapCallback(address(router), 11e18, 0, abi.encode(address(this)));
-        vm.stopPrank();
-    }
-
-    function testSwapExactAmountOut_SwapExpired() public {
-        vm.warp(10 days);
-        vm.expectRevert(abi.encodeWithSelector(SwapExpired.selector, 10 days - 1));
-        router.swapExactAmountOut(liquidationPair, makeAddr("alice"), 1e18, 1e18, 10 days - 1);
-    }
-
-    function testSwapExactAmountOut_UnknownLiquidationPair() public {
-        vm.mockCall(address(factory), abi.encodeCall(factory.deployedPairs, liquidationPair), abi.encode(false));
-        vm.expectRevert(abi.encodeWithSelector(UnknownLiquidationPair.selector, liquidationPair));
-        router.swapExactAmountOut(
-            liquidationPair,
-            address(this),
-            1e18,
-            2e18,
-            block.timestamp
-        );
-    }
-
+  function testSwapExactAmountOut_UnknownLiquidationPair() public {
+    vm.mockCall(
+      address(factory),
+      abi.encodeCall(factory.deployedPairs, liquidationPair),
+      abi.encode(false)
+    );
+    vm.expectRevert(abi.encodeWithSelector(UnknownLiquidationPair.selector, liquidationPair));
+    router.swapExactAmountOut(liquidationPair, address(this), 1e18, 2e18, block.timestamp);
+  }
 }

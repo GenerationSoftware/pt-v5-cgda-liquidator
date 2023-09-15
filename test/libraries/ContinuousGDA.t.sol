@@ -8,7 +8,6 @@ import { ContinuousGDA } from "../../src/libraries/ContinuousGDA.sol";
 import { ContinuousGDAWrapper } from "./wrapper/ContinuousGDAWrapper.sol";
 
 contract ContinuousGDATest is Test {
-
   ContinuousGDAWrapper wrapper;
 
   function setUp() public {
@@ -39,17 +38,17 @@ contract ContinuousGDATest is Test {
     SD59x18 decayConstant = wrap(0.001e18);
     SD59x18 elapsed = convert(12 hours);
     SD59x18 purchaseAmount = elapsed.mul(emissionRate);
-    SD59x18 initialPrice = wrapper.computeK(emissionRate, decayConstant, elapsed, purchaseAmount, purchaseAmount);
+    SD59x18 initialPrice = wrapper.computeK(
+      emissionRate,
+      decayConstant,
+      elapsed,
+      purchaseAmount,
+      purchaseAmount
+    );
     SD59x18 amount = convert(1).mul(emissionRate).ceil();
     console2.log("testPurchasePrice_minimum amount:", amount.unwrap());
     assertApproxEqAbs(
-      wrapper.purchasePrice(
-        amount,
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        convert(1)
-      ).unwrap(),
+      wrapper.purchasePrice(amount, emissionRate, initialPrice, decayConstant, convert(1)).unwrap(),
       499750083312503833111582646342332181,
       1e21
     );
@@ -62,26 +61,16 @@ contract ContinuousGDATest is Test {
     SD59x18 initialPrice = convert(55);
 
     assertEq(
-      wrapper.purchasePrice(
-        convert(500),
-        emissionRate,
-        initialPrice,
-        decayConstant,
-        elapsed
-      ).unwrap(),
+      wrapper
+        .purchasePrice(convert(500), emissionRate, initialPrice, decayConstant, elapsed)
+        .unwrap(),
       35644008052508359911616
     );
   }
 
   function testPurchasePrice_zero() public {
     assertApproxEqAbs(
-      wrapper.purchasePrice(
-        wrap(0),
-        convert(1),
-        convert(55),
-        wrap(0.001e18),
-        convert(1)
-      ).unwrap(),
+      wrapper.purchasePrice(wrap(0), convert(1), convert(55), wrap(0.001e18), convert(1)).unwrap(),
       0,
       1
     );
@@ -93,7 +82,12 @@ contract ContinuousGDATest is Test {
     SD59x18 decayConstant = wrap(0.0005e18);
 
     SD59x18 targetTime = convert(100);
-    SD59x18 auctionStartingPrice = computeK(emissionRate, decayConstant, targetTime, exchangeRateAmountOutToAmountIn);
+    SD59x18 auctionStartingPrice = computeK(
+      emissionRate,
+      decayConstant,
+      targetTime,
+      exchangeRateAmountOutToAmountIn
+    );
     SD59x18 amountOut = targetTime.mul(emissionRate);
     // console2.log("purchase price for", amountOut);
     SD59x18 amountIn = ContinuousGDA.purchasePrice(
@@ -104,7 +98,11 @@ contract ContinuousGDATest is Test {
       targetTime
     );
 
-    assertApproxEqAbs(amountIn.unwrap(), amountOut.div(exchangeRateAmountOutToAmountIn).unwrap(), 100);
+    assertApproxEqAbs(
+      amountIn.unwrap(),
+      amountOut.div(exchangeRateAmountOutToAmountIn).unwrap(),
+      100
+    );
   }
 
   function testComputeK_overflow_regressionTest() public pure {
@@ -129,13 +127,7 @@ contract ContinuousGDATest is Test {
 
     // console2.log("COMPUTE_K purchasedAmountOut", uint(convert(purchasedAmountOut)));
     // console2.log("COMPUTE_K priceAmountIn", uint(convert(priceAmountIn)));
-    return wrapper.computeK(
-      emissionRate,
-      decayConstant,
-      targetTime,
-      purchasedAmountOut,
-      priceAmountIn
-    );
+    return
+      wrapper.computeK(emissionRate, decayConstant, targetTime, purchasedAmountOut, priceAmountIn);
   }
-
 }
