@@ -10,10 +10,6 @@
 	path = lib/openzeppelin-contracts
 	url = https://github.com/openzeppelin/openzeppelin-contracts
 	branch = release-v4.9
-[submodule "lib/ring-buffer-lib"]
-	path = lib/ring-buffer-lib
-	url = https://github.com/generationsoftware/ring-buffer-lib
-	branch = prod-deploy-2
 [submodule "lib/pt-v5-liquidator-interfaces"]
 	path = lib/pt-v5-liquidator-interfaces
 	url = https://github.com/generationsoftware/pt-v5-liquidator-interfaces
