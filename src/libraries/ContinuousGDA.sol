@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.19;
+pragma solidity ^0.8.24;
 
 import { SD59x18, convert, unwrap } from "prb-math/SD59x18.sol";
 import { SafeSD59x18 } from "./SafeSD59x18.sol";
